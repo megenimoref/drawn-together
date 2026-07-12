@@ -39,6 +39,8 @@ export default function Home() {
   const [selectedDay, setSelectedDay] = useState(initial.d ? Number(initial.d) : null);
   const [playing, setPlaying] = useState(false);
   const [shareToast, setShareToast] = useState('');
+  const [mediaLoading, setMediaLoading] = useState(true);
+  const [mediaError, setMediaError] = useState(false);
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -92,6 +94,12 @@ export default function Home() {
   /* היום שמוצג בפועל: מה שהמשתמש בחר, ואם לא בחר — היום המוקדם ביותר עם ציור בחודש. */
   const effectiveDay = selectedDay != null ? selectedDay : firstArtDay(monthPub);
   const pub = effectiveDay != null && monthPub ? monthPub[effectiveDay] : null;
+
+  /* בכל פעם שהמדיה מתחלפת — מאתחלים את מצב הטעינה. */
+  useEffect(() => {
+    setMediaLoading(true);
+    setMediaError(false);
+  }, [pub && pub.artUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* סנכרון URL עם המצב — כדי שגם ניווט "חופשי" ייצור קישור שאפשר להעתיק ולשתף. */
   useEffect(() => {
@@ -217,16 +225,45 @@ export default function Home() {
             <section className="art-card" aria-label="ציור היום">
               <div className="frame">
                 {pub ? (
-                  pub.mediaType === 'video' ? (
-                    <>
-                      <div className="live-badge"><span className="pulse"></span> הציור מתעורר לחיים</div>
-                      <video key={pub.artUrl} autoPlay muted loop playsInline
-                             src={pub.artUrl} aria-label={'הציור ' + pub.title + ' מתעורר לחיים'} />
-                    </>
-                  ) : (
-                    <img src={pub.artUrl} alt={'הציור ' + pub.title + ' מאת ' + pub.child} />
-                  )
-                ) : effectiveDay ? (
+                  <>
+                    {mediaLoading && !mediaError && (
+                      <div className="media-loading" aria-live="polite">
+                        <div className="media-skeleton" aria-hidden="true"></div>
+                        <div className="media-hint">
+                          <span className="loading-dot"></span>
+                          <span className="loading-dot"></span>
+                          <span className="loading-dot"></span>
+                          <span>טוענים את הציור…</span>
+                        </div>
+                      </div>
+                    )}
+                    {pub.mediaType === 'video' ? (
+                      <>
+                        {!mediaLoading && <div className="live-badge"><span className="pulse"></span> הציור מתעורר לחיים</div>}
+                        <video key={pub.artUrl} autoPlay muted loop playsInline
+                               src={pub.artUrl} aria-label={'הציור ' + pub.title + ' מתעורר לחיים'}
+                               style={{ opacity: mediaLoading ? 0 : 1, transition: 'opacity .25s ease' }}
+                               onCanPlay={() => setMediaLoading(false)}
+                               onError={() => { setMediaLoading(false); setMediaError(true); }} />
+                      </>
+                    ) : (
+                      <img src={pub.artUrl} alt={'הציור ' + pub.title + ' מאת ' + pub.child}
+                           style={{ opacity: mediaLoading ? 0 : 1, transition: 'opacity .25s ease' }}
+                           onLoad={() => setMediaLoading(false)}
+                           onError={() => { setMediaLoading(false); setMediaError(true); }} />
+                    )}
+                  </>
+                ) : null}
+                {pub && mediaError && (
+                  <div className="media-error">
+                    <span className="emoji">📡</span>
+                    <span>לא הצלחנו לטעון את הציור כרגע</span>
+                    <button className="link-btn" onClick={() => { setMediaError(false); setMediaLoading(true); }}>
+                      ניסיון נוסף
+                    </button>
+                  </div>
+                )}
+                {!pub && (effectiveDay ? (
                   <div className="waiting">
                     <span className="emoji">✏️</span>
                     <span>{effectiveDay} ב{meta.name} עדיין פנוי</span>
@@ -242,7 +279,7 @@ export default function Home() {
                     <Link className="cta waiting-cta" href="/submit">שליחת ציור והקלטה</Link>
                     <small>מועד אחרון למשלוח: {DEADLINE} · נדרשת הסכמת הורה</small>
                   </div>
-                )}
+                ))}
               </div>
 
               {pub && (

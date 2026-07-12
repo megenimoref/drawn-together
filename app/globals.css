@@ -150,6 +150,49 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
 .live-badge .pulse{width:7px;height:7px;border-radius:50%;background:#FF7B9C;animation:pulse 1.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.5}}
 
+/* ===== מצב טעינת המדיה ===== */
+.media-loading{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;
+  background:#FFF9F4;overflow:hidden;z-index:1;
+}
+/* בזמן טעינה — נותנים למסגרת מקום כדי שהshimmer ייראה */
+.frame:has(.media-loading){min-height:min(56vw,420px)}
+.media-skeleton{
+  position:absolute;inset:0;
+  background:linear-gradient(110deg,#F5E6DE 0%,#FBF4F0 40%,#FFF7F1 50%,#FBF4F0 60%,#F5E6DE 100%);
+  background-size:200% 100%;
+  animation:shimmer 1.4s linear infinite;
+}
+@keyframes shimmer{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+.media-hint{
+  position:relative;z-index:2;display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.85);border-radius:999px;padding:9px 18px;
+  font-family:'Assistant',sans-serif;font-weight:700;color:var(--ink);
+  box-shadow:0 4px 14px rgba(51,64,92,.1);
+}
+.loading-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--pink-deep);
+  animation:loading-bounce 1s ease-in-out infinite;
+}
+.loading-dot:nth-child(2){animation-delay:.15s}
+.loading-dot:nth-child(3){animation-delay:.3s}
+@keyframes loading-bounce{
+  0%,80%,100%{transform:scale(.6);opacity:.4}
+  40%{transform:scale(1);opacity:1}
+}
+
+.media-error{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;
+  background:#FFF3F3;color:var(--ink);text-align:center;padding:24px;z-index:3;
+  font-family:'Assistant',sans-serif;font-weight:700;
+}
+.media-error .emoji{font-size:2rem}
+
 /* יום/חודש שעדיין מחכה לציור */
 .frame .waiting{
   aspect-ratio:4/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
