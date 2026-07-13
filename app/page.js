@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { MONTHS_META, DEMO_PUBLISHED, DEADLINE } from '../lib/months';
+import { MONTHS_META, DEADLINE } from '../lib/months';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -34,7 +34,7 @@ export default function Home() {
 
   const [view, setView] = useState(initIdx >= 0 ? 'cal' : 'cover');
   const [cur, setCur] = useState(initIdx >= 0 ? initIdx : 0);
-  const [published, setPublished] = useState(DEMO_PUBLISHED);
+  const [published, setPublished] = useState({});
   /* selectedDay = בחירה מפורשת של המשתמש (לחיצה או URL). אם null, ה-render נופל ל-firstArtDay של החודש. */
   const [selectedDay, setSelectedDay] = useState(initial.d ? Number(initial.d) : null);
   const [playing, setPlaying] = useState(false);
@@ -47,10 +47,11 @@ export default function Home() {
     let cancelled = false;
     async function refresh() {
       try {
-        const r = await fetch('/api/months', { cache: 'no-store' });
+        /* קווסטרינג _t חוסם cache של דפדפן במקרה שכותרות Cache-Control לא כובדו */
+        const r = await fetch('/api/months?_t=' + Date.now(), { cache: 'no-store' });
         if (!r.ok || cancelled) return;
         const data = await r.json();
-        if (!cancelled) setPublished({ ...DEMO_PUBLISHED, ...data });
+        if (!cancelled) setPublished(data);
       } catch {}
     }
     refresh();

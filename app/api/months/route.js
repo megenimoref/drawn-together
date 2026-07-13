@@ -1,6 +1,7 @@
 import { readJson } from '../../../lib/server';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 /* מחזיר את מה שפורסם ללוח (ציבורי - ללא פרטי הורים).
    מקור אמת יחיד: קבצי ההגשות. מבנה: { monthId: { dayNumber: art } }. */
@@ -25,5 +26,7 @@ export async function GET() {
       voiceUrl: s.voiceUrl || null
     };
   }
-  return Response.json(published);
+  const res = Response.json(published);
+  res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  return res;
 }

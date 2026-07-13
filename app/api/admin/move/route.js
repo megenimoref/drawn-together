@@ -11,7 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(request) {
   if (!isAdmin(request)) return unauthorized();
   try {
-    const { action, id, toMonth, toDay, videoUrl, clearVideo } = await request.json();
+    const body = await request.json();
+    const { action, id, toMonth, toDay, videoUrl, clearVideo } = body;
+    console.log('[admin/move] נכנס', { action, id, toMonth, toDay, hasVideoUrl: !!videoUrl, clearVideo });
 
     if (action === 'unassign') {
       const path = 'data/submissions/' + id + '.json';
@@ -79,6 +81,7 @@ export async function POST(request) {
       if (clearVideo) sub.videoUrl = null;
       else if (videoUrl) sub.videoUrl = videoUrl;
       await writeJson(path, sub);
+      console.log('[admin/move] נשמר', { id, month: sub.month, day: sub.day, videoUrl: sub.videoUrl });
       return Response.json({ ok: true });
     }
 

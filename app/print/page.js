@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { MONTHS_META, DEMO_PUBLISHED, CONTACT_EMAIL } from '../../lib/months';
+import { MONTHS_META, CONTACT_EMAIL } from '../../lib/months';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -17,7 +17,7 @@ function firstArtDay(monthPublished) {
 }
 
 export default function PrintCalendar() {
-  const [published, setPublished] = useState(DEMO_PUBLISHED);
+  const [published, setPublished] = useState({});
   const [origin, setOrigin] = useState('');
 
   useEffect(() => {
@@ -25,9 +25,9 @@ export default function PrintCalendar() {
        ככה גם PDF שנוצר מקומית מייצר QR-ים שמובילים לאתר החי. */
     const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
     setOrigin((envUrl && envUrl.replace(/\/$/, '')) || window.location.origin);
-    fetch('/api/months', { cache: 'no-store' })
+    fetch('/api/months?_t=' + Date.now(), { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : {}))
-      .then((data) => setPublished({ ...DEMO_PUBLISHED, ...data }))
+      .then((data) => setPublished(data))
       .catch(() => {});
   }, []);
 
@@ -145,28 +145,31 @@ export default function PrintCalendar() {
                   </div>
                 </div>
 
-                <div className="mp-holidays">
-                  {Object.entries(m.holidays).map(([d, n]) => (
-                    <div key={d}><strong>{d}</strong> — {n}</div>
-                  ))}
-                </div>
-
-                {hero && (
-                  <div className="mp-qr">
-                    <QRCodeSVG value={urlFor(m.id, heroDay)} size={80} level="M"
-                               bgColor="#FFFDFB" fgColor="#33405C" />
-                    <div className="qr-caption small">
-                      <strong>לשמוע את הקול של {hero.child.split(',')[0]}</strong>
-                      <span>סרקו לפתיחת הציור באתר</span>
-                    </div>
+                {Object.keys(m.holidays).length > 0 && (
+                  <div className="mp-holidays">
+                    {Object.entries(m.holidays).map(([d, n]) => (
+                      <div key={d}><strong>{d}</strong> — {n}</div>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
 
             <footer className="mp-foot">
-              <span>לוח תשפ״ז · משפחות המילואים · מחוז חיפה</span>
-              <span>{m.name}</span>
+              {hero ? (
+                <div className="mp-qr">
+                  <QRCodeSVG value={urlFor(m.id, heroDay)} size={64} level="M"
+                             bgColor="#FFFDFB" fgColor="#33405C" />
+                  <div className="qr-caption small">
+                    <strong>לשמוע את הקול של {hero.child.split(',')[0]}</strong>
+                    <span>סרקו לפתיחת הציור באתר</span>
+                  </div>
+                </div>
+              ) : <span />}
+              <div className="mp-foot-brand">
+                <span>לוח תשפ״ז · משפחות המילואים · מחוז חיפה</span>
+                <strong>{m.name}</strong>
+              </div>
             </footer>
           </section>
         );

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { upload } from '@vercel/blob/client';
 import { CONTACT_EMAIL, DEADLINE } from '../../lib/months';
+import { toWebp, toCompressedVoice, pickRecordingMime, extForMime } from '../../lib/media-client';
 
 const MAX_IMG_MB = 12;
 const MAX_REC_SECONDS = 20;
@@ -56,9 +57,11 @@ export default function SubmitPage() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setError('');
       chunksRef.current = [];
-      const mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
-                 : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
-      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      /* מעדיפים Opus/WebM בקצב נמוך — קול צלול בקובץ זעיר (~80KB ל-20 שניות). */
+      const mime = pickRecordingMime();
+      const rec = mime
+        ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 32000 })
+        : new MediaRecorder(stream);
       recRef.current = rec;
       rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
       rec.onstop = () => {
@@ -99,20 +102,31 @@ export default function SubmitPage() {
     try {
       const id = crypto.randomUUID();
 
+      /* ממירים את הציור ל-WebP לפני העלאה — חוסך משמעותית במקום ובזמן. */
+      setProgress('מכינים את הציור… 🎨');
+      let artUpload = artFile;
+      try {
+        artUpload = await toWebp(artFile, { maxDim: 2048, quality: 0.85 });
+      } catch { /* fallback: מעלים את הקובץ המקורי */ }
+
       setProgress('מעלים את הציור… 🎨');
-      const artExt = (artFile.name.split('.').pop() || 'jpg').toLowerCase();
-      const artBlob = await upload(`submissions/${id}/art.${artExt}`, artFile, {
+      const artBlob = await upload(`submissions/${id}/art.webp`, artUpload, {
         access: 'public',
         handleUploadUrl: '/api/upload'
       });
 
       let voiceUrl = null;
       if (voiceBlob) {
+        /* מקודדים את ההקלטה מחדש ל-Opus/WebM חסכוני — לא משנה אם מ-מיקרופון או מקובץ. */
+        setProgress('מכינים את ההקלטה… 🎧');
+        let voiceUpload = voiceBlob;
+        try {
+          voiceUpload = await toCompressedVoice(voiceBlob, { bitrate: 32000 });
+        } catch { /* fallback: מעלים את הבלוב המקורי */ }
+
         setProgress('מעלים את ההקלטה… 🎧');
-        const vExt = voiceBlob.type.includes('mp4') ? 'm4a'
-                   : voiceBlob.type.includes('mpeg') ? 'mp3'
-                   : voiceBlob.type.includes('wav') ? 'wav' : 'webm';
-        const vb = await upload(`submissions/${id}/voice.${vExt}`, voiceBlob, {
+        const vExt = extForMime(voiceUpload.type || 'audio/webm');
+        const vb = await upload(`submissions/${id}/voice.${vExt}`, voiceUpload, {
           access: 'public',
           handleUploadUrl: '/api/upload'
         });

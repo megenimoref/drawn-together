@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { upload } from '@vercel/blob/client';
 import { MONTHS_META } from '../../lib/months';
+import { toWebmVideo } from '../../lib/media-client';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -38,15 +39,27 @@ export default function AdminPage() {
   const [bankOpen, setBankOpen] = useState(false);
   const [showRejected, setShowRejected] = useState(false);
 
+  /* פעולת וידאו פעילה — כדי להראות מצב "מעבד" בתוך פאנל היום */
+  const [videoStage, setVideoStage] = useState(''); /* '' | 'transcoding' | 'uploading' */
+
   /* drag state */
   const [dragOverDay, setDragOverDay] = useState(null);
   const draggingRef = useRef(null);
   const videoInputs = useRef({});
 
   async function loadSubs() {
-    const r = await fetch('/api/admin/submissions', { cache: 'no-store' });
+    /* קווסטרינג _t חוסם cache של דפדפן במקרה שכותרות Cache-Control לא כובדו */
+    const r = await fetch('/api/admin/submissions?_t=' + Date.now(), { cache: 'no-store' });
     if (r.status === 401) { setAuthed(false); return; }
     if (r.ok) { setSubs(await r.json()); setAuthed(true); }
+  }
+
+  /* טעינה מאוחרת: לאחר מוטציה, נותנים ל-Vercel Blob זמן להתפשט (~3s)
+     לפני שקוראים מחדש — אחרת הקריאה תחזיר תוכן ישן ותדרוס עדכון אופטימי. */
+  const reloadTimerRef = useRef(null);
+  function scheduleReload(delayMs = 3500) {
+    if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = setTimeout(() => { loadSubs(); reloadTimerRef.current = null; }, delayMs);
   }
 
   /* משדר לטאב הציבורי (אם פתוח באותו דפדפן) לרענן את הלוח מיד. */
@@ -60,7 +73,13 @@ export default function AdminPage() {
     } catch {}
   }
 
-  useEffect(() => { loadSubs(); }, []);
+  useEffect(() => {
+    loadSubs();
+    /* סנכרון כשחוזרים לטאב אחרי היעדרות — Blob הספיק להתעדכן עד אז */
+    const onVis = () => { if (document.visibilityState === 'visible') loadSubs(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   async function login(e) {
     e.preventDefault();
@@ -83,12 +102,13 @@ export default function AdminPage() {
     for (const s of subs) {
       if (s.status !== 'approved' || !s.month || !s.day) continue;
       if (!map[s.month]) map[s.month] = {};
+      const videoUrl = s.videoUrl || null;
       map[s.month][s.day] = {
         title: '״' + s.artTitle + '״',
         child: s.childName + ', גיל ' + s.age,
         dedication: s.dedication,
-        mediaType: 'image',
-        artUrl: s.artUrl,
+        mediaType: videoUrl ? 'video' : 'image',
+        artUrl: videoUrl || s.artUrl,
         thumbUrl: s.artUrl,
         voiceUrl: s.voiceUrl || null,
         subId: s.id
@@ -155,7 +175,8 @@ export default function AdminPage() {
       setSelectedDay(dayNum);
       setEditingDay(null);
       setBankOpen(false);
-      loadSubs();
+      /* לא קוראים ל-loadSubs אחרי הצלחה: העדכון האופטימי מדויק,
+         ו-Blob CDN עלול להחזיר גרסה ישנה שתדרוס אותו. */
     } catch (err) {
       setError(String(err?.message || err));
       loadSubs();
@@ -192,7 +213,8 @@ export default function AdminPage() {
       broadcastChange();
       const monthName = (MONTHS_META.find((m) => m.id === toMonth) || {}).name;
       showFlash('עברה ל-' + toDay + ' ' + monthName + ' ✓');
-      loadSubs();
+      /* לא קוראים ל-loadSubs אחרי הצלחה: העדכון האופטימי מדויק,
+         ו-Blob CDN עלול להחזיר גרסה ישנה שתדרוס אותו. */
     } catch (err) {
       setError(String(err?.message || err));
       loadSubs();
@@ -206,12 +228,30 @@ export default function AdminPage() {
     if (!sub || !sub.month || !sub.day) return;
     setError('');
     setBusy(true);
+    setVideoStage('transcoding');
     try {
-      const vb = await upload('published/' + subId + '/art.mp4', file, {
+      /* המרה ל-WebM חסכוני לפני העלאה. */
+      let uploadBlob = file;
+      try {
+        uploadBlob = await toWebmVideo(file, { maxWidth: 1280, fps: 24, videoBitrate: 800000 });
+      } catch { /* fallback: מעלים את הקובץ המקורי */ }
+
+      /* בטיחות: אם הבלוב ריק, נעצור מוקדם עם שגיאה ברורה */
+      if (!uploadBlob || uploadBlob.size === 0) {
+        throw new Error('הקובץ ריק אחרי ההמרה — כנראה שהוידאו לא נטען כראוי');
+      }
+      console.log('[updateVideo] העלאה', { size: uploadBlob.size, type: uploadBlob.type });
+
+      setVideoStage('uploading');
+      const vb = await upload('published/' + subId + '/art.webm', uploadBlob, {
         access: 'public',
         handleUploadUrl: '/api/upload'
       });
-      const videoUrl = vb.url;
+      const videoUrl = vb && vb.url;
+      if (!videoUrl) {
+        throw new Error('לא התקבל URL מהעלאה');
+      }
+      console.log('[updateVideo] הועלה', videoUrl);
       setSubs((prev) => prev.map((s) => s.id === subId ? { ...s, videoUrl } : s));
       const r = await fetch('/api/admin/move', {
         method: 'POST',
@@ -221,12 +261,13 @@ export default function AdminPage() {
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
       showFlash('וידאו מונפש הועלה ✓');
-      loadSubs();
+      /* לא קוראים ל-loadSubs אחרי הצלחה — Blob CDN עלול להחזיר גרסה ישנה */
     } catch (err) {
       setError('העלאת הווידאו נכשלה: ' + String(err?.message || err));
       loadSubs();
     } finally {
       setBusy(false);
+      setVideoStage('');
     }
   }
 
@@ -246,7 +287,8 @@ export default function AdminPage() {
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
       showFlash('הווידאו הוסר ✓');
-      loadSubs();
+      /* לא קוראים ל-loadSubs אחרי הצלחה: העדכון האופטימי מדויק,
+         ו-Blob CDN עלול להחזיר גרסה ישנה שתדרוס אותו. */
     } catch (err) {
       setError(String(err?.message || err));
       loadSubs();
@@ -271,7 +313,8 @@ export default function AdminPage() {
       broadcastChange();
       showFlash('הוסר מהלוח ✓');
       setEditingDay(null);
-      loadSubs();
+      /* לא קוראים ל-loadSubs אחרי הצלחה: העדכון האופטימי מדויק,
+         ו-Blob CDN עלול להחזיר גרסה ישנה שתדרוס אותו. */
     } catch (err) {
       setError(String(err?.message || err));
       loadSubs();
@@ -291,10 +334,14 @@ export default function AdminPage() {
         body: JSON.stringify({ id: sub.id, action: 'reject' })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
-      await loadSubs();
+      /* עדכון אופטימי לדחייה */
+      setSubs((prev) => prev.map((s) => s.id === sub.id ? { ...s, status: 'rejected', month: null, day: null } : s));
       showFlash('נדחתה');
+      /* לא קוראים ל-loadSubs אחרי הצלחה: העדכון האופטימי מדויק,
+         ו-Blob CDN עלול להחזיר גרסה ישנה שתדרוס אותו. */
     } catch (err) {
       setError(String(err?.message || err));
+      loadSubs();
     } finally {
       setBusy(false);
     }
@@ -337,7 +384,7 @@ export default function AdminPage() {
           <button className="submit-btn" type="submit">כניסה</button>
         </form>
         {loginError && <div className="form-error" style={{ marginTop: 14 }}>{loginError}</div>}
-        <p className="admin-note">הסיסמה מוגדרת במשתנה הסביבה ADMIN_PASSWORD.</p>
+        {/* <p className="admin-note">הסיסמה מוגדרת במשתנה הסביבה ADMIN_PASSWORD.</p> */}
         <p><Link className="back-link" href="/">← חזרה ללוח</Link></p>
       </div>
     );
@@ -523,6 +570,7 @@ export default function AdminPage() {
           onReject={reject}
           onUpdateVideo={updateVideo}
           onClearVideo={clearVideo}
+          videoStage={videoStage}
           videoInputs={videoInputs} />
       )}
     </div>
@@ -583,7 +631,7 @@ function PendingCard({ sub, published, busy, onDragStart, onDragEnd, onAssign, o
 }
 
 function DayEditPanel({ monthMeta, day, monthPub, pubSub, pending, published, busy,
-                        onClose, onAssign, onMove, onUnassign, onReject, onUpdateVideo, onClearVideo, videoInputs }) {
+                        onClose, onAssign, onMove, onUnassign, onReject, onUpdateVideo, onClearVideo, videoStage, videoInputs }) {
   const dayArt = monthPub ? monthPub[day] : null;
   /* דיפולט לשדות "העברה" - התאריך הנוכחי של השיבוץ, כך שרואים איפה זה עכשיו וצריך רק לשנות מה שרוצים. */
   const [moveM, setMoveM] = useState(monthMeta.id);
@@ -619,14 +667,28 @@ function DayEditPanel({ monthMeta, day, monthPub, pubSub, pending, published, bu
 
               <div className="edit-block">
                 <div className="ap-eyebrow small">🎬 וידאו מונפש</div>
-                {hasVideo ? (
+                {videoStage ? (
+                  <div className="video-processing">
+                    <span className="video-spinner" aria-hidden="true"></span>
+                    <div>
+                      <strong>
+                        {videoStage === 'transcoding' ? 'ממירים את הווידאו ל-WebM חסכוני…' : 'מעלים לענן…'}
+                      </strong>
+                      <small>
+                        {videoStage === 'transcoding'
+                          ? 'ההמרה לוקחת בערך את משך הווידאו עצמו. אל תסגרו את החלון.'
+                          : 'רגע אחד — כמעט שם.'}
+                      </small>
+                    </div>
+                  </div>
+                ) : hasVideo ? (
                   <>
                     <video src={pubSub.videoUrl} controls
                            style={{ width: '100%', maxHeight: 200, borderRadius: 8, marginTop: 6, background:'#000' }} />
                     <div className="sub-actions" style={{ marginTop: 8 }}>
-                      <label className="btn approve small" style={{ cursor: 'pointer' }}>
+                      <label className={'btn approve small' + (busy ? ' disabled' : '')} style={{ cursor: busy ? 'wait' : 'pointer' }}>
                         החלפה
-                        <input type="file" accept="video/mp4,video/webm" hidden ref={videoRef}
+                        <input type="file" accept="video/mp4,video/webm" hidden ref={videoRef} disabled={busy}
                                onChange={(e) => { const f = e.target.files[0]; if (f) onUpdateVideo(pubSub.id, f); }} />
                       </label>
                       <button className="btn reject" disabled={busy} onClick={() => onClearVideo(pubSub.id)}>
@@ -636,9 +698,9 @@ function DayEditPanel({ monthMeta, day, monthPub, pubSub, pending, published, bu
                   </>
                 ) : (
                   <div className="sub-actions" style={{ marginTop: 6 }}>
-                    <label className="btn approve small" style={{ cursor: 'pointer' }}>
+                    <label className={'btn approve small' + (busy ? ' disabled' : '')} style={{ cursor: busy ? 'wait' : 'pointer' }}>
                       צירוף קובץ mp4/webm
-                      <input type="file" accept="video/mp4,video/webm" hidden ref={videoRef}
+                      <input type="file" accept="video/mp4,video/webm" hidden ref={videoRef} disabled={busy}
                              onChange={(e) => { const f = e.target.files[0]; if (f) onUpdateVideo(pubSub.id, f); }} />
                     </label>
                     <span className="admin-note" style={{ margin: 0 }}>יחליף את התמונה הסטטית בלוח הציבורי.</span>

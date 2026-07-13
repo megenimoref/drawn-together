@@ -344,14 +344,16 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
   border-radius:999px;padding:6px 14px;font-weight:700;font-size:.9rem;
 }
 
-.mp-body{display:grid;grid-template-columns:1.15fr 1fr;gap:26px;align-items:start;flex:1;min-height:0}
+.mp-body{display:grid;grid-template-columns:1.15fr 1fr;grid-template-rows:1fr;gap:26px;flex:1;min-height:0}
+.mp-side{display:flex;flex-direction:column;gap:12px;min-height:0}
 
-.mp-hero{display:flex;flex-direction:column;gap:12px;min-height:0}
+.mp-hero{display:flex;flex-direction:column;gap:10px;min-height:0}
 .mp-frame{
   border:2.5px solid var(--ink);border-radius:4px;overflow:hidden;background:#fff;
-  aspect-ratio:4/3;
+  flex:1;min-height:0;
 }
 .mp-frame img{width:100%;height:100%;object-fit:cover;display:block}
+.mp-meta{flex-shrink:0}
 .mp-meta{padding-inline-start:2px}
 .mp-hero-title{font-family:'Amatica SC',cursive;font-weight:700;font-size:1.9rem;color:var(--ink);line-height:1.05}
 .mp-hero-child{
@@ -371,8 +373,7 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
 }
 .mp-empty .emoji{font-size:2.2rem}
 
-.mp-side{display:flex;flex-direction:column;gap:14px;min-height:0}
-.mp-cal{background:var(--card);border-radius:8px;padding:12px 14px;border:1.5px solid #F3E4DE}
+.mp-cal{background:var(--card);border-radius:8px;padding:12px 14px;border:1.5px solid #F3E4DE;flex-shrink:0}
 .mp-cal-head{font-family:'Amatica SC',cursive;font-weight:700;font-size:1.4rem;margin-bottom:8px}
 .mp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .mp-dow{font-weight:700;font-size:.68rem;text-align:center;color:var(--ink-soft);padding-bottom:2px}
@@ -397,19 +398,30 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
 .mp-hasart.mp-holiday::after{background:rgba(255,255,255,.85);border-radius:4px;padding:0 1px}
 
 .mp-holidays{
-  font-size:.8rem;line-height:1.55;color:var(--ink-soft);
-  background:#FFF9F4;border-radius:6px;padding:6px 10px;
+  font-size:.72rem;line-height:1.45;color:var(--ink-soft);
+  background:#FFF9F4;border-radius:6px;padding:5px 9px;
+  display:grid;grid-template-columns:repeat(2,1fr);gap:2px 12px;
 }
 .mp-holidays strong{color:var(--pink-deep);font-weight:700;margin-inline-end:4px}
 
 .mp-qr{
-  display:flex;align-items:center;gap:12px;
-  background:var(--card);border:1.5px solid var(--peach);border-radius:8px;padding:10px;
+  display:flex;align-items:center;gap:10px;
+  background:var(--card);border:1.5px solid var(--peach);border-radius:8px;padding:8px 12px;
 }
+.mp-qr svg{flex-shrink:0}
 
 .mp-foot{
-  display:flex;justify-content:space-between;margin-top:12px;padding-top:8px;
-  border-top:1.5px dashed #F3E4DE;font-size:.75rem;color:var(--ink-soft);font-weight:600;
+  display:flex;justify-content:space-between;align-items:center;gap:14px;
+  margin-top:14px;padding-top:10px;
+  border-top:1.5px dashed #F3E4DE;
+}
+.mp-foot-brand{
+  display:flex;flex-direction:column;text-align:end;
+  font-size:.75rem;color:var(--ink-soft);font-weight:600;
+}
+.mp-foot-brand strong{
+  font-family:'Amatica SC',cursive;font-weight:700;
+  font-size:1.5rem;color:var(--ink);line-height:1;
 }
 
 /* ----- דף תודות ----- */
@@ -544,8 +556,24 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
   border-radius:8px;padding:6px 8px;background:#fff;
 }
 .btn.small{font-size:.85rem;padding:6px 14px}
+.btn.disabled{opacity:.5;pointer-events:none}
 .edit-block{margin-top:14px;padding-top:12px;border-top:1.5px dashed #F3E4DE}
 .ap-eyebrow.small{font-size:.8rem;margin-bottom:6px}
+
+/* מצב עיבוד וידאו — נראה בבירור בתוך הפאנל */
+.video-processing{
+  display:flex;align-items:center;gap:14px;
+  background:#FFF9F4;border:1.5px solid var(--peach);border-radius:10px;
+  padding:14px 16px;margin-top:6px;
+}
+.video-processing strong{display:block;font-weight:700;color:var(--ink);font-size:.95rem}
+.video-processing small{display:block;font-size:.8rem;color:var(--ink-soft);line-height:1.5;margin-top:2px}
+.video-spinner{
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  border:3px solid #F5E6DE;border-top-color:var(--pink-deep);
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 .legend{display:flex;gap:14px;margin-top:14px;font-size:.8rem;color:var(--ink-soft);flex-wrap:wrap}
 .legend b{color:var(--pink-deep);font-weight:700}
 .holiday-list{margin-top:10px;font-size:.85rem;line-height:1.7}
