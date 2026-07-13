@@ -253,7 +253,7 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
 .share-btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
 
 .cover-share{
-  display:inline-flex;align-items:center;gap:6px;margin-top:20px;
+  display:inline-flex;align-items:center;gap:6px;
   background:transparent;border:none;cursor:pointer;
   color:var(--ink-soft);font-family:'Assistant',sans-serif;
   font-weight:700;font-size:.9rem;text-decoration:underline;
@@ -261,6 +261,7 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
 }
 .cover-share:hover{color:var(--orange)}
 .cover-share:focus-visible{outline:2px solid var(--orange);outline-offset:2px;border-radius:6px}
+.cover-actions{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin-top:20px}
 
 .share-toast{
   position:fixed;bottom:26px;left:50%;transform:translateX(-50%);
@@ -270,6 +271,185 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
   animation:toastIn .18s ease-out;
 }
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+
+/* ================= מסמך הדפסה ================= */
+.print-doc{max-width:1180px;margin:0 auto}
+.print-toolbar{
+  background:var(--card);border-radius:14px;box-shadow:var(--shadow);
+  padding:16px 20px;margin-bottom:24px;text-align:center;
+}
+.print-toolbar .submit-btn{max-width:320px;margin:0 auto;display:inline-block}
+.print-toolbar .back-link{display:inline-block;margin-inline-start:20px}
+
+.print-page{
+  background:#fff;box-shadow:0 8px 30px rgba(51,64,92,.14);
+  border-radius:6px;padding:28px 32px;margin-bottom:24px;
+  /* יחס A4-לרוחב לתצוגה מסך: 297×210 mm */
+  aspect-ratio:297/210;display:flex;flex-direction:column;
+  color:var(--ink);position:relative;overflow:hidden;
+}
+
+/* ----- דף שער ----- */
+.cover-page{
+  background:
+    radial-gradient(600px 250px at 90% -10%, #FFE3EC 0%, transparent 60%),
+    radial-gradient(500px 220px at 5% 110%, #FDE7D2 0%, transparent 55%),
+    #FBF2EE;
+  align-items:center;justify-content:center;text-align:center;padding:60px;
+}
+.cover-inner{max-width:640px}
+.cover-eyebrow-print{
+  display:inline-block;font-weight:700;font-size:1rem;color:var(--ink-soft);
+  background:var(--card);border:1.5px dashed var(--pink);border-radius:999px;padding:8px 18px;
+}
+.cover-title-print{
+  font-family:'Amatica SC',cursive;font-weight:700;
+  font-size:6rem;line-height:1;margin-top:24px;color:var(--ink);
+}
+.cover-title-print em{font-style:normal;color:var(--pink-deep)}
+.cover-sub-print{
+  font-family:'Assistant',sans-serif;font-weight:600;
+  font-size:1.35rem;line-height:1.4;color:var(--ink);margin-top:14px;
+}
+.cover-sub2-print{color:var(--ink-soft);margin-top:6px;font-size:1rem;font-weight:600}
+.cover-qr-block{
+  display:flex;align-items:center;gap:20px;justify-content:center;margin-top:40px;
+  background:var(--card);border:2px solid var(--ink);border-radius:14px;
+  padding:18px 24px;box-shadow:0 4px 14px rgba(51,64,92,.1);
+}
+.qr-caption{display:flex;flex-direction:column;gap:4px;text-align:start;max-width:260px}
+.qr-caption strong{font-family:'Amatica SC',cursive;font-size:1.5rem;color:var(--ink)}
+.qr-caption span{font-size:.9rem;color:var(--ink-soft);line-height:1.4}
+.qr-caption.small strong{font-size:1.1rem}
+.qr-caption.small span{font-size:.75rem}
+.cover-stats{
+  display:flex;gap:14px;justify-content:center;margin-top:28px;
+  font-family:'Amatica SC',cursive;font-weight:700;font-size:1.4rem;color:var(--pink-deep);
+}
+
+/* ----- דף חודש ----- */
+.month-page{padding:32px 40px}
+.mp-head{
+  display:flex;align-items:flex-end;justify-content:space-between;
+  border-bottom:3px solid var(--peach);padding-bottom:12px;margin-bottom:20px;
+}
+.mp-title{
+  font-family:'Amatica SC',cursive;font-weight:700;
+  font-size:4rem;line-height:.9;color:var(--ink);
+}
+.mp-title em{font-style:normal;color:var(--pink-deep)}
+.mp-greg{font-size:1rem;color:var(--ink-soft);margin-top:4px}
+.mp-count{
+  background:#FFE3EC;color:var(--pink-deep);
+  border-radius:999px;padding:6px 14px;font-weight:700;font-size:.9rem;
+}
+
+.mp-body{display:grid;grid-template-columns:1.15fr 1fr;gap:26px;align-items:start;flex:1;min-height:0}
+
+.mp-hero{display:flex;flex-direction:column;gap:12px;min-height:0}
+.mp-frame{
+  border:2.5px solid var(--ink);border-radius:4px;overflow:hidden;background:#fff;
+  aspect-ratio:4/3;
+}
+.mp-frame img{width:100%;height:100%;object-fit:cover;display:block}
+.mp-meta{padding-inline-start:2px}
+.mp-hero-title{font-family:'Amatica SC',cursive;font-weight:700;font-size:1.9rem;color:var(--ink);line-height:1.05}
+.mp-hero-child{
+  display:inline-block;margin-top:5px;font-weight:700;font-size:.85rem;
+  background:#FFE3EC;color:var(--pink-deep);border-radius:999px;padding:3px 12px;
+}
+.mp-hero-ded{
+  font-family:'Assistant',sans-serif;font-size:.95rem;font-weight:500;
+  line-height:1.55;color:var(--ink);margin-top:8px;
+  padding-inline-start:10px;border-inline-start:3px solid var(--peach);
+}
+
+.mp-empty{
+  aspect-ratio:4/3;border:3px dashed var(--pink);border-radius:6px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  color:var(--ink-soft);font-family:'Assistant',sans-serif;font-weight:700;
+}
+.mp-empty .emoji{font-size:2.2rem}
+
+.mp-side{display:flex;flex-direction:column;gap:14px;min-height:0}
+.mp-cal{background:var(--card);border-radius:8px;padding:12px 14px;border:1.5px solid #F3E4DE}
+.mp-cal-head{font-family:'Amatica SC',cursive;font-weight:700;font-size:1.4rem;margin-bottom:8px}
+.mp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.mp-dow{font-weight:700;font-size:.68rem;text-align:center;color:var(--ink-soft);padding-bottom:2px}
+.mp-day{
+  position:relative;aspect-ratio:1/1;display:flex;
+  align-items:flex-start;justify-content:flex-end;
+  padding:2px 4px;border-radius:5px;background:#FBF4F0;
+  font-weight:600;font-size:.7rem;overflow:hidden;
+}
+.mp-day-empty{background:transparent}
+.mp-holiday{background:#FFE3EC;color:var(--pink-deep)}
+.mp-holiday::after{content:"🧡";position:absolute;bottom:1px;inset-inline-start:3px;font-size:.5rem}
+.mp-day img{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  border-radius:4px;opacity:.85;
+}
+.mp-hasart{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.65)}
+.mp-hasart .mp-num{
+  position:relative;z-index:2;background:rgba(0,0,0,.55);
+  border-radius:4px;padding:1px 4px;color:#fff;font-weight:700;
+}
+.mp-hasart.mp-holiday::after{background:rgba(255,255,255,.85);border-radius:4px;padding:0 1px}
+
+.mp-holidays{
+  font-size:.8rem;line-height:1.55;color:var(--ink-soft);
+  background:#FFF9F4;border-radius:6px;padding:6px 10px;
+}
+.mp-holidays strong{color:var(--pink-deep);font-weight:700;margin-inline-end:4px}
+
+.mp-qr{
+  display:flex;align-items:center;gap:12px;
+  background:var(--card);border:1.5px solid var(--peach);border-radius:8px;padding:10px;
+}
+
+.mp-foot{
+  display:flex;justify-content:space-between;margin-top:12px;padding-top:8px;
+  border-top:1.5px dashed #F3E4DE;font-size:.75rem;color:var(--ink-soft);font-weight:600;
+}
+
+/* ----- דף תודות ----- */
+.credits-page{padding:60px;justify-content:center;align-items:center;text-align:center}
+.credits-inner{max-width:640px}
+.credits-title{
+  font-family:'Amatica SC',cursive;font-weight:700;
+  font-size:3.6rem;color:var(--ink);
+}
+.credits-lead{
+  font-family:'Assistant',sans-serif;font-size:1.15rem;
+  line-height:1.6;color:var(--ink);margin-top:18px;
+}
+.credits-block{
+  margin-top:26px;display:flex;flex-direction:column;gap:4px;
+  font-family:'Assistant',sans-serif;color:var(--ink);
+}
+.credits-block strong{font-family:'Amatica SC',cursive;font-size:1.7rem;font-weight:700}
+.credits-qr{
+  display:flex;align-items:center;gap:18px;justify-content:center;margin-top:30px;
+  background:var(--card);border:2px solid var(--ink);border-radius:12px;padding:16px 22px;
+}
+
+/* ================= כללי הדפסה ================= */
+@page{size:A4 landscape;margin:0}
+
+@media print{
+  html,body{background:#fff !important;padding:0 !important;margin:0 !important}
+  body::before,body::after{display:none !important}
+  .no-print{display:none !important}
+  .print-doc{max-width:none;margin:0}
+  .print-page{
+    box-shadow:none;border-radius:0;margin:0;
+    width:297mm;height:210mm;
+    aspect-ratio:auto;
+    page-break-after:always;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  .print-page:last-child{page-break-after:auto}
+}
 @keyframes bounce{0%,100%{height:8px}50%{height:26px}}
 
 /* לוח החודש */

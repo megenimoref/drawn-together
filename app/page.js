@@ -117,7 +117,10 @@ export default function Home() {
   }, [cur, selectedDay, view, meta.id]);
 
   async function share(kind) {
-    const base = window.location.origin + window.location.pathname;
+    /* עדיפות ל-NEXT_PUBLIC_SITE_URL (הפרודקשן), fallback ל-URL הנוכחי.
+       ככה שיתוף מטאב-פיתוח לא ישלח קישור לlocalhost. */
+    const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const base = ((envUrl && envUrl.replace(/\/$/, '')) || window.location.origin) + '/';
     let shareUrl, title, text;
     if (kind === 'day' && pub) {
       const u = new URL(base);
@@ -191,11 +194,14 @@ export default function Home() {
           </div>
 
           <button className="cover-cta" onClick={() => { setCur(0); setView('cal'); }}>פתיחת הלוח 🎨</button>
-          <div>
+          <div className="cover-actions">
             <button className="cover-share" onClick={() => share('cover')}
                     aria-label="שיתוף לוח השנה">
               🔗 שיתוף הלוח
             </button>
+            <Link className="cover-share" href="/print">
+              📄 הורדת הלוח לPDF / הדפסה
+            </Link>
           </div>
         </section>
       )}
