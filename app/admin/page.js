@@ -62,16 +62,11 @@ export default function AdminPage() {
     reloadTimerRef.current = setTimeout(() => { loadSubs(); reloadTimerRef.current = null; }, delayMs);
   }
 
-  /* משדר לטאב הציבורי (אם פתוח באותו דפדפן) לרענן את הלוח מיד. */
-  function broadcastChange() {
-    try {
-      if (typeof BroadcastChannel !== 'undefined') {
-        const bc = new BroadcastChannel('drawn-together');
-        bc.postMessage('published-changed');
-        bc.close();
-      }
-    } catch {}
-  }
+  /* מסמן שצריך לשדר לטאב הציבורי. השידור עצמו קורה ב-useEffect (למטה)
+     אחרי שה-published הנגזר התעדכן מהעדכון האופטימי — כך נשלחים הנתונים
+     הטריים עצמם, בלי תלות ב-Blob CDN שמחזיר גרסה ישנה מיד אחרי כתיבה. */
+  const shouldBroadcastRef = useRef(false);
+  function broadcastChange() { shouldBroadcastRef.current = true; }
 
   useEffect(() => { loadSubs(); }, []);
 
@@ -110,6 +105,20 @@ export default function AdminPage() {
     }
     return map;
   }, [subs]);
+
+  /* שידור הנתונים הטריים לטאב הציבורי — רץ אחרי כל שינוי ב-published,
+     אבל רק אם מוטציה סימנה שיש מה לשדר (לא על טעינות רקע). */
+  useEffect(() => {
+    if (!shouldBroadcastRef.current) return;
+    shouldBroadcastRef.current = false;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('drawn-together');
+        bc.postMessage({ type: 'published-changed', published });
+        bc.close();
+      }
+    } catch {}
+  }, [published]);
 
   const meta = MONTHS_META[cur];
   const monthPub = published[meta.id];

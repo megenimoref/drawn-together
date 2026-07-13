@@ -93,11 +93,22 @@ export default function Home() {
     const onVis = () => { if (document.visibilityState === 'visible') refresh(); };
     document.addEventListener('visibilitychange', onVis);
 
-    /* עדכון מיידי מטאב הניהול באותו דפדפן */
+    /* עדכון מיידי מטאב הניהול באותו דפדפן.
+       ההודעה נושאת את הנתונים עצמם — מחילים ישירות, בלי fetch,
+       כי fetch מיד אחרי כתיבה עלול לקבל גרסה ישנה מ-Blob CDN. */
     let bc = null;
     if (typeof BroadcastChannel !== 'undefined') {
       bc = new BroadcastChannel('drawn-together');
-      bc.onmessage = (e) => { if (e.data === 'published-changed') refresh(); };
+      bc.onmessage = (e) => {
+        const msg = e.data;
+        if (msg && typeof msg === 'object' && msg.type === 'published-changed' && msg.published) {
+          setPublished(msg.published);
+          setPublishedLoaded(true);
+          try { localStorage.setItem('drawn-together:published', JSON.stringify(msg.published)); } catch {}
+          return;
+        }
+        if (msg === 'published-changed') refresh(); /* תאימות לפורמט הישן */
+      };
     }
 
     return () => {
@@ -381,12 +392,21 @@ export default function Home() {
                                poster={pub.thumbUrl}
                                aria-label={'הציור ' + pub.title + ' מתעורר לחיים'}
                                style={{ opacity: mediaLoading ? 0 : 1, transition: 'opacity .25s ease', background: '#fff' }}
+                               ref={(el) => {
+                                 /* וידאו שכבר buffered מה-cache — האירוע נורה לפני שהחיבור קרה */
+                                 if (el && el.readyState >= 3 && mediaLoading) setMediaLoading(false);
+                               }}
                                onCanPlay={() => setMediaLoading(false)}
                                onError={() => { setMediaLoading(false); setMediaError(true); }} />
                       </>
                     ) : (
                       <img src={pub.artUrl} alt={'הציור ' + pub.title + ' מאת ' + pub.child}
                            style={{ opacity: mediaLoading ? 0 : 1, transition: 'opacity .25s ease' }}
+                           ref={(el) => {
+                             /* תמונה מ-cache מסיימת להיטען לפני ש-React חיבר את onLoad —
+                                בדיקת complete מנקה את מצב הטעינה שהיה נתקע לנצח */
+                             if (el && el.complete && el.naturalWidth > 0 && mediaLoading) setMediaLoading(false);
+                           }}
                            onLoad={() => setMediaLoading(false)}
                            onError={() => { setMediaLoading(false); setMediaError(true); }} />
                     )}
@@ -530,6 +550,15 @@ function TileMedia({ month, thumbs, isFeatured, isFirst }) {
                loading={(isFeatured && i === 0) || (isFirst && i === 0) ? 'eager' : 'lazy'}
                fetchPriority={isFeatured && i === 0 ? 'high' : 'auto'}
                decoding="async"
+               ref={(el) => {
+                 /* תמונה מ-cache — load עלול להישרף לפני חיבור ה-handler */
+                 if (el && el.complete && el.naturalWidth > 0 && !loadedSet.has(thumb)) {
+                   setLoadedSet((prev) => {
+                     if (prev.has(thumb)) return prev;
+                     const next = new Set(prev); next.add(thumb); return next;
+                   });
+                 }
+               }}
                onLoad={() => setLoadedSet((prev) => {
                  if (prev.has(thumb)) return prev;
                  const next = new Set(prev); next.add(thumb); return next;
