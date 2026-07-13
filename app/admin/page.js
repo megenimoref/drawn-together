@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { upload } from '@vercel/blob/client';
-import { MONTHS_META } from '../../lib/months';
+import { MONTHS_META, groupHolidays } from '../../lib/months';
 import { toWebmVideo } from '../../lib/media-client';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -389,44 +389,104 @@ export default function AdminPage() {
 
   return (
     <div>
-      <Link className="back-link" href="/">← חזרה ללוח הציבורי</Link>
-
       <header className="month-head admin-mode">
-        <div>
-          <span className="eyebrow admin-eyebrow"><span className="dot"></span> מצב ניהול · {assignedCount} שיבוצים · {pending.length} ממתינות</span>
+        <div className="month-title-block">
           <h1 className="month">{meta.name} תשפ״ז</h1>
           <div className="greg">{meta.greg}</div>
         </div>
-        <div className="nav" aria-label="ניווט בין חודשים">
-          <button onClick={() => setCur((cur - 1 + 13) % 13)} aria-label="החודש הקודם">›</button>
-          <div className="dots">
-            {MONTHS_META.map((m, i) => (
-              <button key={m.id} className={i === cur ? 'on' : ''}
-                      aria-label={'מעבר לחודש ' + m.name} onClick={() => setCur(i)} />
-            ))}
-          </div>
-          <button onClick={() => setCur((cur + 1) % 13)} aria-label="החודש הבא">‹</button>
+        <div className="month-head-side">
+          <span className="eyebrow admin-eyebrow">
+            <span className="dot"></span> מצב ניהול · {assignedCount} שיבוצים · {pending.length} ממתינות
+          </span>
         </div>
       </header>
+
+      <nav className="month-tabs" aria-label="ניווט בין חודשים">
+        {/* בניהול, כפתור הבית מוביל ללוח הציבורי */}
+        <Link className="month-tab month-tab-home" href="/"
+              aria-label="מעבר ללוח הציבורי">
+          <span aria-hidden="true">⌂</span> לוח תשפ״ז
+        </Link>
+        <span className="month-tabs-divider" aria-hidden="true"></span>
+        {MONTHS_META.map((m, i) => (
+          <button key={m.id}
+                  className={'month-tab' + (i === cur ? ' active' : '')}
+                  aria-label={'מעבר לחודש ' + m.name}
+                  aria-current={i === cur ? 'page' : undefined}
+                  onClick={() => setCur(i)}>
+            {m.name}
+          </button>
+        ))}
+      </nav>
 
       {error && <div className="form-error">{error}</div>}
       {flash && <div className="flash-msg">{flash}</div>}
 
       <main className="month-grid">
+        <section className="cal-card" aria-label="ימי החודש">
+          <div className="cal-head">
+            <button className="cal-nav-btn" onClick={() => setCur((cur - 1 + 13) % 13)}
+                    aria-label="החודש הקודם"><span aria-hidden="true">→</span> החודש הקודם</button>
+            <span className="cal-head-title">{meta.calTitle}</span>
+            <button className="cal-nav-btn" onClick={() => setCur((cur + 1) % 13)}
+                    aria-label="החודש הבא">החודש הבא <span aria-hidden="true">←</span></button>
+          </div>
+          <div className="grid">
+            {DOWS.map((d) => <div key={d} className="dow">{d}</div>)}
+            {Array.from({ length: meta.startDow }).map((_, i) => <div key={'e' + i} className="day empty" />)}
+            {Array.from({ length: meta.days }).map((_, i) => {
+              const d = i + 1;
+              const h = meta.holidays[d];
+              const dayArt = monthPub ? monthPub[d] : null;
+              const isSelected = d === selectedDay;
+              const isDragOver = d === dragOverDay;
+              const cls = 'day clickable admin-day'
+                + (h ? ' holiday' : '')
+                + (dayArt ? ' has-art' : ' vacant')
+                + (isSelected ? ' selected' : '')
+                + (isDragOver ? ' drop-target' : '');
+              return (
+                <button key={d} type="button" className={cls}
+                        title={h || undefined}
+                        draggable={!!dayArt}
+                        onDragStart={dayArt ? (e) => onDragStart(e, dayArt.subId, 'day') : undefined}
+                        onDragEnd={onDragEnd}
+                        onDragOver={(e) => onDayDragOver(e, d)}
+                        onDragLeave={() => setDragOverDay(null)}
+                        onDrop={(e) => onDayDrop(e, d)}
+                        onClick={() => { setSelectedDay(d); setEditingDay(d); }}>
+                  {dayArt && <img className="day-thumb" src={dayArt.thumbUrl} alt="" draggable={false} />}
+                  <span className="day-num">{d}</span>
+                  {h && !dayArt && <span className="day-holiday-name">{h}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <div className="legend">
+            <span className="legend-item"><span className="legend-swatch holiday-swatch"></span> חג ומועד</span>
+            <span className="legend-item"><span className="legend-swatch art-swatch"></span> ציור של ילד/ה</span>
+            <span className="legend-item"><span className="legend-swatch selected-swatch"></span> יום נבחר</span>
+            <span className="legend-item legend-note">לחיצה על יום — עריכת שיבוץ ✎</span>
+          </div>
+        </section>
+
+        <div className="art-column">
         <section className="art-card" aria-label="ציור היום">
           <div className="frame">
             {pub ? (
               pub.mediaType === 'video' ? (
                 <video key={pub.artUrl} autoPlay muted loop playsInline
-                       src={pub.artUrl} aria-label={pub.title} />
+                       src={pub.artUrl} poster={pub.thumbUrl}
+                       style={{ background: '#fff' }}
+                       aria-label={pub.title} />
               ) : (
                 <img src={pub.artUrl} alt={pub.title} />
               )
             ) : (
               <div className="waiting">
-                <span className="emoji">🖍️</span>
-                <span>{selectedDay ? 'היום ' + selectedDay + ' עוד ריק' : 'החודש עוד ריק'}</span>
-                <small>לחצו על יום כדי לשבץ אליו הגשה ממתינה.</small>
+                <span className="emoji">✏️</span>
+                <span>{selectedDay ? 'יום ' + selectedDay + ' עוד ריק' : 'החודש עוד ריק'}</span>
+                <small>לחצו על יום כדי לשבץ אליו הגשה ממתינה, או גררו כרטיס מבנק ההגשות.</small>
               </div>
             )}
           </div>
@@ -447,49 +507,17 @@ export default function AdminPage() {
           )}
         </section>
 
-        <section className="cal-card" aria-label="ימי החודש">
-          <div className="cal-head"><span>{meta.calTitle}</span><small>מצב ניהול 🧡</small></div>
-          <div className="grid">
-            {DOWS.map((d) => <div key={d} className="dow">{d}</div>)}
-            {Array.from({ length: meta.startDow }).map((_, i) => <div key={'e' + i} className="day empty" />)}
-            {Array.from({ length: meta.days }).map((_, i) => {
-              const d = i + 1;
-              const h = meta.holidays[d];
-              const dayArt = monthPub ? monthPub[d] : null;
-              const isSelected = d === selectedDay;
-              const isDragOver = d === dragOverDay;
-              const cls = 'day admin-day'
-                + (h ? ' holiday' : '')
-                + (dayArt ? ' has-art' : '')
-                + (isSelected ? ' selected' : '')
-                + (isDragOver ? ' drop-target' : '');
-              return (
-                <button key={d} type="button" className={cls}
-                        title={h || undefined}
-                        draggable={!!dayArt}
-                        onDragStart={dayArt ? (e) => onDragStart(e, dayArt.subId, 'day') : undefined}
-                        onDragEnd={onDragEnd}
-                        onDragOver={(e) => onDayDragOver(e, d)}
-                        onDragLeave={() => setDragOverDay(null)}
-                        onDrop={(e) => onDayDrop(e, d)}
-                        onClick={() => { setSelectedDay(d); setEditingDay(d); }}>
-                  {dayArt && <img className="day-thumb" src={dayArt.thumbUrl} alt="" draggable={false} />}
-                  <span className="day-num">{d}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="legend">
-            <span><b>🧡</b> חג / מועד</span> · <span>לחצו על יום כדי לערוך</span>
-          </div>
-          <div className="holiday-list">
-            {Object.keys(meta.holidays).length
-              ? Object.entries(meta.holidays).map(([d, n]) => (
-                  <div key={d}><span>{d}</span> - {n}</div>
-                ))
-              : 'אין מועדים מיוחדים החודש'}
-          </div>
-        </section>
+        {Object.keys(meta.holidays).length > 0 && (
+          <section className="holiday-card" aria-label="חגי החודש">
+            <div className="holiday-card-title"><b>🧡</b> חגי החודש</div>
+            <div className="holiday-card-list">
+              {groupHolidays(meta.holidays).map((g, i) => (
+                <div key={i}><span>{g.range}</span> — {g.name}</div>
+              ))}
+            </div>
+          </section>
+        )}
+        </div>
       </main>
 
       {/* כפתור צף לפתיחת בנק ההגשות הממתינות */}
