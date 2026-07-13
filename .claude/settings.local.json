@@ -3,7 +3,12 @@
     "allow": [
       "Bash(curl -s -o /dev/null -w \"public: %{http_code}\\\\n\" http://localhost:3000/)",
       "Bash(curl -s -o /dev/null -w \"public: %{http_code}\\\\nprint: %{http_code}\\\\n\" http://localhost:3000/ http://localhost:3000/print)",
-      "Bash(curl -s -o /dev/null -w \"public: %{http_code}\\\\ndeeplink: %{http_code}\\\\n\" http://localhost:3000/ \"http://localhost:3000/?m=01-tishrei&d=1\")"
+      "Bash(curl -s -o /dev/null -w \"public: %{http_code}\\\\ndeeplink: %{http_code}\\\\n\" http://localhost:3000/ \"http://localhost:3000/?m=01-tishrei&d=1\")",
+      "Bash(curl -s -o /dev/null -w \"admin: %{http_code}\\\\n\" http://localhost:3000/admin)",
+      "Bash(curl -s -o /dev/null -w \"submit: %{http_code}\\\\n\" http://localhost:3000/submit)",
+      "Bash(curl -s -o /dev/null -w \"print: %{http_code}\\\\n\" http://localhost:3000/print)",
+      "Bash(curl -s http://localhost:3000/robots.txt)",
+      "Bash(curl -s -X POST http://localhost:3000/api/upload -H \"Content-Type: application/json\" -d \"{\\\\\"type\\\\\":\\\\\"blob.generate-client-token\\\\\",\\\\\"payload\\\\\":{\\\\\"pathname\\\\\":\\\\\"published/test/art.webm\\\\\",\\\\\"callbackUrl\\\\\":\\\\\"http://localhost:3000/api/upload\\\\\",\\\\\"clientPayload\\\\\":null,\\\\\"multipart\\\\\":false}}\")"
     ]
   }
 }

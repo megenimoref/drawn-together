@@ -16,11 +16,6 @@ function firstArtDay(monthPublished) {
   return list.length ? list[0] : null;
 }
 
-function coverThumb(monthPublished) {
-  const d = firstArtDay(monthPublished);
-  return d != null ? monthPublished[d].thumbUrl : null;
-}
-
 /* כל ה-thumbs של החודש בסדר כרונולוגי — לקרוסלה במוזאיקת השער */
 function allThumbs(monthPublished) {
   if (!monthPublished) return [];
