@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"public: %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"public: %{http_code}\\\\nprint: %{http_code}\\\\n\" http://localhost:3000/ http://localhost:3000/print)",
+      "Bash(curl -s -o /dev/null -w \"public: %{http_code}\\\\ndeeplink: %{http_code}\\\\n\" http://localhost:3000/ \"http://localhost:3000/?m=01-tishrei&d=1\")"
+    ]
+  }
+}

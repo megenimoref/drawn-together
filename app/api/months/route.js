@@ -7,9 +7,13 @@ export const revalidate = 0;
    מקור אמת יחיד: קבצי ההגשות. מבנה: { monthId: { dayNumber: art } }. */
 export async function GET() {
   const index = await readJson('data/index.json', []);
+  /* קריאה מקבילה של כל ההגשות במקום סדרתית — משדרג ~N*500ms → ~500ms כולל. */
+  const subs = await Promise.all(
+    index.map((id) => readJson('data/submissions/' + id + '.json', null))
+  );
+
   const published = {};
-  for (const id of index) {
-    const s = await readJson('data/submissions/' + id + '.json', null);
+  for (const s of subs) {
     if (!s) continue;
     if (s.status !== 'approved' || !s.month || !s.day) continue;
     const day = Number(s.day);

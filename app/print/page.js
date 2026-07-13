@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { MONTHS_META, CONTACT_EMAIL } from '../../lib/months';
+import { MONTHS_META, CONTACT_EMAIL, groupHolidays } from '../../lib/months';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -43,7 +43,7 @@ export default function PrintCalendar() {
 
   return (
     <div className="print-doc">
-      {/* פס פעולות — לא נדפס */}
+      {/* פס פעולות - לא נדפס */}
       <div className="print-toolbar no-print">
         <button className="submit-btn" onClick={() => window.print()}>
           📄 שמירה כ-PDF / הדפסה
@@ -60,7 +60,7 @@ export default function PrintCalendar() {
         <div className="cover-inner">
           <div className="cover-eyebrow-print">מרכז ״מגנים על העורף״ · מחוז חיפה</div>
           <h1 className="cover-title-print">לוח <em>תשפ״ז</em></h1>
-          <p className="cover-sub-print">הסיפור של משפחות המילואים — דרך העיניים של הילדים והילדות</p>
+          <p className="cover-sub-print">הסיפור של משפחות המילואים - דרך העיניים של הילדים והילדות</p>
           <p className="cover-sub2-print">13 חודשים · געגוע, גאווה, אהבה, תקווה וחוסן</p>
 
           <div className="cover-qr-block">
@@ -147,8 +147,8 @@ export default function PrintCalendar() {
 
                 {Object.keys(m.holidays).length > 0 && (
                   <div className="mp-holidays">
-                    {Object.entries(m.holidays).map(([d, n]) => (
-                      <div key={d}><strong>{d}</strong> — {n}</div>
+                    {groupHolidays(m.holidays).map((g, i) => (
+                      <div key={i}><strong>{g.range}</strong> - {g.name}</div>
                     ))}
                   </div>
                 )}

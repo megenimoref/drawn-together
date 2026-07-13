@@ -57,7 +57,7 @@ export default function SubmitPage() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setError('');
       chunksRef.current = [];
-      /* מעדיפים Opus/WebM בקצב נמוך — קול צלול בקובץ זעיר (~80KB ל-20 שניות). */
+      /* מעדיפים Opus/WebM בקצב נמוך - קול צלול בקובץ זעיר (~80KB ל-20 שניות). */
       const mime = pickRecordingMime();
       const rec = mime
         ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 32000 })
@@ -102,7 +102,7 @@ export default function SubmitPage() {
     try {
       const id = crypto.randomUUID();
 
-      /* ממירים את הציור ל-WebP לפני העלאה — חוסך משמעותית במקום ובזמן. */
+      /* ממירים את הציור ל-WebP לפני העלאה - חוסך משמעותית במקום ובזמן. */
       setProgress('מכינים את הציור… 🎨');
       let artUpload = artFile;
       try {
@@ -117,7 +117,7 @@ export default function SubmitPage() {
 
       let voiceUrl = null;
       if (voiceBlob) {
-        /* מקודדים את ההקלטה מחדש ל-Opus/WebM חסכוני — לא משנה אם מ-מיקרופון או מקובץ. */
+        /* מקודדים את ההקלטה מחדש ל-Opus/WebM חסכוני - לא משנה אם מ-מיקרופון או מקובץ. */
         setProgress('מכינים את ההקלטה… 🎧');
         let voiceUpload = voiceBlob;
         try {

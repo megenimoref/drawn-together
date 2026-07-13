@@ -73,13 +73,7 @@ export default function AdminPage() {
     } catch {}
   }
 
-  useEffect(() => {
-    loadSubs();
-    /* סנכרון כשחוזרים לטאב אחרי היעדרות — Blob הספיק להתעדכן עד אז */
-    const onVis = () => { if (document.visibilityState === 'visible') loadSubs(); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
-  }, []);
+  useEffect(() => { loadSubs(); }, []);
 
   async function login(e) {
     e.preventDefault();

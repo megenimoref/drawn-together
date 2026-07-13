@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { MONTHS_META, DEADLINE } from '../lib/months';
+import { MONTHS_META, DEADLINE, groupHolidays } from '../lib/months';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -21,6 +21,14 @@ function coverThumb(monthPublished) {
   return d != null ? monthPublished[d].thumbUrl : null;
 }
 
+/* כל ה-thumbs של החודש בסדר כרונולוגי — לקרוסלה במוזאיקת השער */
+function allThumbs(monthPublished) {
+  if (!monthPublished) return [];
+  return daysWithArt(monthPublished)
+    .map((d) => monthPublished[d]?.thumbUrl)
+    .filter(Boolean);
+}
+
 function readUrl() {
   if (typeof window === 'undefined') return { m: null, d: null };
   const p = new URLSearchParams(window.location.search);
@@ -28,31 +36,61 @@ function readUrl() {
 }
 
 export default function Home() {
-  /* אתחול מ-URL — קישור משותף נוחת ישירות על החודש/יום המתאימים. */
-  const initial = typeof window !== 'undefined' ? readUrl() : { m: null, d: null };
-  const initIdx = initial.m ? MONTHS_META.findIndex((x) => x.id === initial.m) : -1;
-
-  const [view, setView] = useState(initIdx >= 0 ? 'cal' : 'cover');
-  const [cur, setCur] = useState(initIdx >= 0 ? initIdx : 0);
+  /* מצב התחלתי אחיד לשרת וללקוח (מונע hydration mismatch).
+     הקריאה מ-URL קורית ב-useEffect אחרי mount. */
+  const [view, setView] = useState('cover');
+  const [cur, setCur] = useState(0);
   const [published, setPublished] = useState({});
+  const [publishedLoaded, setPublishedLoaded] = useState(false);
   /* selectedDay = בחירה מפורשת של המשתמש (לחיצה או URL). אם null, ה-render נופל ל-firstArtDay של החודש. */
-  const [selectedDay, setSelectedDay] = useState(initial.d ? Number(initial.d) : null);
+  const [selectedDay, setSelectedDay] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [shareToast, setShareToast] = useState('');
   const [mediaLoading, setMediaLoading] = useState(true);
   const [mediaError, setMediaError] = useState(false);
+  const [voiceTime, setVoiceTime] = useState({ current: 0, duration: 0 });
   const audioRef = useRef(null);
+
+  /* אתחול מ-URL אחרי mount - כך שלא נגרם hydration mismatch.
+     אם הקישור כולל ?m= (וגם ?d=) - נכנסים ישירות לתצוגת החודש/יום. */
+  useEffect(() => {
+    const { m, d } = readUrl();
+    if (m) {
+      const idx = MONTHS_META.findIndex((x) => x.id === m);
+      if (idx >= 0) {
+        setCur(idx);
+        setView('cal');
+        if (d) setSelectedDay(Number(d));
+      }
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
+
+    /* טעינה מיידית מ-localStorage אם יש cache — המשתמש רואה את הלוח בלי המתנה.
+       הנתונים הטריים מגיעים ברקע ומעדכנים אם משהו השתנה. */
+    try {
+      const cached = localStorage.getItem('drawn-together:published');
+      if (cached) {
+        const data = JSON.parse(cached);
+        setPublished(data);
+        setPublishedLoaded(true);
+      }
+    } catch { /* localStorage לא זמין (מצב פרטי/גלישה מוגבלת) — נופלים לפניה רגילה */ }
+
     async function refresh() {
       try {
         /* קווסטרינג _t חוסם cache של דפדפן במקרה שכותרות Cache-Control לא כובדו */
         const r = await fetch('/api/months?_t=' + Date.now(), { cache: 'no-store' });
         if (!r.ok || cancelled) return;
         const data = await r.json();
-        if (!cancelled) setPublished(data);
-      } catch {}
+        if (!cancelled) {
+          setPublished(data);
+          setPublishedLoaded(true);
+          try { localStorage.setItem('drawn-together:published', JSON.stringify(data)); } catch {}
+        }
+      } catch { if (!cancelled) setPublishedLoaded(true); }
     }
     refresh();
 
@@ -78,7 +116,7 @@ export default function Home() {
   const monthPub = published[meta.id];
 
   /* מעבר חודש/שינוי view = מנקה את הבחירה, כך שה-render יראה firstArtDay של החודש החדש.
-     אין תלות ב-monthPub — כדי לא לדרוס בחירת URL כשהנתונים מגיעים אחרי mount. */
+     אין תלות ב-monthPub - כדי לא לדרוס בחירת URL כשהנתונים מגיעים אחרי mount. */
   const firstRunRef = useRef(true);
   useEffect(() => {
     if (firstRunRef.current) {
@@ -92,17 +130,24 @@ export default function Home() {
 
   useEffect(() => { stopVoice(); }, [selectedDay]);
 
-  /* היום שמוצג בפועל: מה שהמשתמש בחר, ואם לא בחר — היום המוקדם ביותר עם ציור בחודש. */
+  /* היום שמוצג בפועל: מה שהמשתמש בחר, ואם לא בחר - היום המוקדם ביותר עם ציור בחודש. */
   const effectiveDay = selectedDay != null ? selectedDay : firstArtDay(monthPub);
   const pub = effectiveDay != null && monthPub ? monthPub[effectiveDay] : null;
 
-  /* בכל פעם שהמדיה מתחלפת — מאתחלים את מצב הטעינה. */
+  /* רשימת הימים עם ציור, לניווט בין ציורי אותו חודש */
+  const artDaysList = daysWithArt(monthPub);
+  const artIdx = pub ? artDaysList.indexOf(effectiveDay) : -1;
+  const artTotal = artDaysList.length;
+  const prevArtDay = artTotal > 1 ? artDaysList[(artIdx - 1 + artTotal) % artTotal] : null;
+  const nextArtDay = artTotal > 1 ? artDaysList[(artIdx + 1) % artTotal] : null;
+
+  /* בכל פעם שהמדיה מתחלפת - מאתחלים את מצב הטעינה. */
   useEffect(() => {
     setMediaLoading(true);
     setMediaError(false);
   }, [pub && pub.artUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* סנכרון URL עם המצב — כדי שגם ניווט "חופשי" ייצור קישור שאפשר להעתיק ולשתף. */
+  /* סנכרון URL עם המצב - כדי שגם ניווט "חופשי" ייצור קישור שאפשר להעתיק ולשתף. */
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
@@ -128,19 +173,19 @@ export default function Home() {
       u.searchParams.set('m', meta.id);
       u.searchParams.set('d', String(effectiveDay));
       shareUrl = u.toString();
-      title = 'לוח תשפ״ז — ' + meta.name;
+      title = 'לוח תשפ״ז - ' + meta.name;
       text = pub.title + ' · ' + pub.child + ' · לוח תשפ״ז';
     } else {
       shareUrl = base;
       title = 'לוח תשפ״ז';
-      text = 'לוח תשפ״ז של משפחות המילואים — מחוז חיפה';
+      text = 'לוח תשפ״ז של משפחות המילואים - מחוז חיפה';
     }
     try {
       if (navigator.share) {
         await navigator.share({ title, text, url: shareUrl });
         return;
       }
-    } catch { /* המשתמש ביטל את התפריט — נופלים ל-clipboard */ }
+    } catch { /* המשתמש ביטל את התפריט - נופלים ל-clipboard */ }
     try {
       await navigator.clipboard.writeText(shareUrl);
       setShareToast('הקישור הועתק ✓');
@@ -154,19 +199,40 @@ export default function Home() {
     const a = audioRef.current;
     if (a) { a.pause(); a.currentTime = 0; }
     setPlaying(false);
+    setVoiceTime({ current: 0, duration: 0 });
   }
 
-  function toggleVoice(url) {
+  function toggleVoice() {
     const a = audioRef.current;
     if (!a) return;
     if (playing) { stopVoice(); return; }
-    a.src = url;
+    /* ה-src כבר מוגדר כפרופ; מספיק להפעיל. */
     a.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+  }
+
+  function fmtTime(sec) {
+    if (!Number.isFinite(sec) || sec < 0) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
   }
 
   return (
     <>
-      <audio ref={audioRef} onEnded={stopVoice} />
+      {/* src נקבע כפרופ ו-preload=metadata גורם לדפדפן להוריד את החלק הקטן
+          עם ה-duration בלי לחכות לקליק — כך רואים את "0:07" מיד. */}
+      <audio ref={audioRef}
+             src={pub && pub.voiceUrl ? pub.voiceUrl : undefined}
+             preload={pub && pub.voiceUrl ? 'metadata' : 'none'}
+             onEnded={stopVoice}
+             onLoadedMetadata={() => {
+               const a = audioRef.current;
+               if (a) setVoiceTime((t) => ({ ...t, duration: Number.isFinite(a.duration) ? a.duration : 0 }));
+             }}
+             onTimeUpdate={() => {
+               const a = audioRef.current;
+               if (a) setVoiceTime((t) => ({ ...t, current: a.currentTime || 0 }));
+             }} />
 
       {view === 'cover' && (
         <section id="cover" aria-label="שער הלוח">
@@ -177,18 +243,25 @@ export default function Home() {
 
           <div className="mosaic">
             {MONTHS_META.map((m, i) => {
-              const thumb = coverThumb(published[m.id]);
-              const count = daysWithArt(published[m.id]).length;
+              const monthPub = published[m.id];
+              const thumbs = allThumbs(monthPub);
+              const count = thumbs.length;
+              /* מציין את החודש הראשון (תשרי) כ-featured כדי להעביר את העין אליו. */
+              const isFeatured = i === 0;
               return (
-                <button key={m.id} className="tile" aria-label={'פתיחת חודש ' + m.name}
+                <button key={m.id}
+                        className={'tile' + (isFeatured ? ' featured' : '')}
+                        style={{ '--tile-hue': m.hue }}
+                        aria-label={'פתיחת חודש ' + m.name}
                         onClick={() => { setCur(i); setView('cal'); window.scrollTo(0, 0); }}>
-                  {thumb ? (
-                    <div className="art"><img src={thumb} alt={'הציור של חודש ' + m.name} loading="lazy" /></div>
-                  ) : (
-                    <div className="art placeholder">🖍️<small>הציור בדרך</small></div>
+                  {count > 0 && (
+                    <span className="tile-count" aria-label={count + ' ציורים בחודש'}>
+                      {count} {count === 1 ? 'ציור' : 'ציורים'}
+                    </span>
                   )}
+                  <TileMedia month={m} thumbs={thumbs} isFeatured={isFeatured} isFirst={i < 3} />
                   <span className="mname">{m.name}</span>
-                  {count > 1 && <span className="cover-count">{count} ציורים</span>}
+                  {m.essence && <span className="tile-chip">{m.essence}</span>}
                 </button>
               );
             })}
@@ -210,25 +283,84 @@ export default function Home() {
       {view === 'cal' && (
         <section aria-label="לוח החודש">
           <header className="month-head">
-            <div>
-              <span className="eyebrow"><span className="dot"></span> מגנים על העורף · מחוז חיפה · לוח שנה דיגיטלי תשפ״ז</span>
+            <div className="month-title-block">
               <h1 className="month">{meta.name} תשפ״ז</h1>
               <div className="greg">{meta.greg}</div>
             </div>
-            <div className="nav" aria-label="ניווט בין חודשים">
-              <button onClick={() => setCur((cur - 1 + 13) % 13)} aria-label="החודש הקודם">›</button>
-              <div className="dots">
-                {MONTHS_META.map((m, i) => (
-                  <button key={m.id} className={i === cur ? 'on' : ''}
-                          aria-label={'מעבר לחודש ' + m.name} onClick={() => setCur(i)} />
-                ))}
-              </div>
-              <button onClick={() => setCur((cur + 1) % 13)} aria-label="החודש הבא">‹</button>
-              <button className="back-cover" onClick={() => setView('cover')}>חזרה לשער</button>
+            <div className="month-head-side">
+              {/* צ'יפ המותג הפך לקליקבילי - כמו לוגו שמחזיר הביתה */}
+              <button className="eyebrow eyebrow-home"
+                      onClick={() => setView('cover')}
+                      aria-label="חזרה לעמוד הבית">
+                <span className="dot"></span> מגנים על העורף · מחוז חיפה · לוח שנה דיגיטלי תשפ״ז
+              </button>
             </div>
           </header>
 
+          <nav className="month-tabs" aria-label="ניווט בין חודשים">
+            {/* כפתור בית — ראשון בשורה, מובלט בכהה, עם מפריד לפני החודשים */}
+            <button className="month-tab month-tab-home"
+                    onClick={() => setView('cover')}
+                    aria-label="חזרה ללוח תשפ״ז">
+              <span aria-hidden="true">⌂</span> לוח תשפ״ז
+            </button>
+            <span className="month-tabs-divider" aria-hidden="true"></span>
+            {MONTHS_META.map((m, i) => (
+              <button key={m.id}
+                      className={'month-tab' + (i === cur ? ' active' : '')}
+                      aria-label={'מעבר לחודש ' + m.name}
+                      aria-current={i === cur ? 'page' : undefined}
+                      onClick={() => setCur(i)}>
+                {m.name}
+              </button>
+            ))}
+          </nav>
+
           <main className="month-grid">
+            <section className="cal-card" aria-label="ימי החודש">
+              <div className="cal-head">
+                <button className="cal-nav-btn" onClick={() => setCur((cur - 1 + 13) % 13)}
+                        aria-label="החודש הקודם"><span aria-hidden="true">→</span> החודש הקודם</button>
+                <span className="cal-head-title">
+                  {meta.calTitle}
+                  {!publishedLoaded && <span className="cal-loading" aria-live="polite"> · טוענים ציורים…</span>}
+                </span>
+                <button className="cal-nav-btn" onClick={() => setCur((cur + 1) % 13)}
+                        aria-label="החודש הבא">החודש הבא <span aria-hidden="true">←</span></button>
+              </div>
+              <div className={'grid' + (!publishedLoaded ? ' grid-loading' : '')}>
+                {DOWS.map((d) => <div key={d} className="dow">{d}</div>)}
+                {Array.from({ length: meta.startDow }).map((_, i) => <div key={'e' + i} className="day empty" />)}
+                {Array.from({ length: meta.days }).map((_, i) => {
+                  const d = i + 1;
+                  const h = meta.holidays[d];
+                  const dayArt = monthPub ? monthPub[d] : null;
+                  const isSelected = d === effectiveDay;
+                  const cls = 'day clickable'
+                    + (h ? ' holiday' : '')
+                    + (dayArt ? ' has-art' : ' vacant')
+                    + (isSelected ? ' selected' : '');
+                  return (
+                    <button key={d} type="button" className={cls}
+                            title={h || undefined}
+                            onClick={() => setSelectedDay(d)}
+                            aria-label={dayArt ? 'הצגת הציור של יום ' + d : 'יום ' + d + ' - פנוי לשליחה'}>
+                      {dayArt && <img className="day-thumb" src={dayArt.thumbUrl} alt="" />}
+                      <span className="day-num">{d}</span>
+                      {h && !dayArt && <span className="day-holiday-name">{h}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="legend">
+                <span className="legend-item"><span className="legend-swatch holiday-swatch"></span> חג ומועד</span>
+                <span className="legend-item"><span className="legend-swatch art-swatch"></span> ציור של ילד/ה</span>
+                <span className="legend-item"><span className="legend-swatch selected-swatch"></span> יום נבחר</span>
+                <span className="legend-item legend-note">שאר הימים - פנויים לציור חדש <span className="legend-heart" aria-hidden="true">💗</span></span>
+              </div>
+            </section>
+
+            <div className="art-column">
             <section className="art-card" aria-label="ציור היום">
               <div className="frame">
                 {pub ? (
@@ -247,9 +379,13 @@ export default function Home() {
                     {pub.mediaType === 'video' ? (
                       <>
                         {!mediaLoading && <div className="live-badge"><span className="pulse"></span> הציור מתעורר לחיים</div>}
+                        {/* poster = תמונת הציור הסטטית. הדפדפן מציג אותה עד שהוידאו מתחיל,
+                            וגם אם הוידאו נכשל (או פגום ומציג שחור) — לפחות רואים את הציור. */}
                         <video key={pub.artUrl} autoPlay muted loop playsInline
-                               src={pub.artUrl} aria-label={'הציור ' + pub.title + ' מתעורר לחיים'}
-                               style={{ opacity: mediaLoading ? 0 : 1, transition: 'opacity .25s ease' }}
+                               src={pub.artUrl}
+                               poster={pub.thumbUrl}
+                               aria-label={'הציור ' + pub.title + ' מתעורר לחיים'}
+                               style={{ opacity: mediaLoading ? 0 : 1, transition: 'opacity .25s ease', background: '#fff' }}
                                onCanPlay={() => setMediaLoading(false)}
                                onError={() => { setMediaLoading(false); setMediaError(true); }} />
                       </>
@@ -270,24 +406,36 @@ export default function Home() {
                     </button>
                   </div>
                 )}
-                {!pub && (effectiveDay ? (
+                {!pub && (
                   <div className="waiting">
                     <span className="emoji">✏️</span>
-                    <span>{effectiveDay} ב{meta.name} עדיין פנוי</span>
-                    <small>אולי היום הזה יהיה של הילד/ה שלכם? שלחו לנו ציור, שם פרטי, גיל והקדשה קצרה בקול הילד/ה - ואם הצוות יאשר, הציור יופיע כאן.</small>
+                    <span>רוצים ציור שלכם על הלוח?</span>
+                    <small>
+                      {effectiveDay
+                        ? <>יום {effectiveDay} ב{meta.name} עדיין פנוי. שלחו לנו ציור, שם פרטי, גיל והקדשה קצרה - ואם הצוות יאשר, הציור יופיע כאן על הלוח לכל השכונה.</>
+                        : <>ב{meta.name} עדיין יש ימים פנויים. שלחו לנו ציור, שם פרטי, גיל והקדשה קצרה - ואם הצוות יאשר, הציור יופיע כאן על הלוח לכל השכונה.</>}
+                    </small>
                     <Link className="cta waiting-cta" href="/submit">שליחת ציור והקלטה</Link>
-                    <small>מועד אחרון למשלוח: {DEADLINE} · נדרשת הסכמת הורה</small>
+                    <small>מועד אחרון למשלוח: <b>{DEADLINE}</b> · <b>נדרשת הסכמת ההורה</b></small>
                   </div>
-                ) : (
-                  <div className="waiting">
-                    <span className="emoji">🖍️</span>
-                    <span>הציור שלך יכול להיות כאן</span>
-                    <small>ילדות וילדי משפחות המילואים במחוז חיפה - שלחו לנו ציור, שם פרטי, גיל והקדשה קצרה בקול הילד/ה. לחיצה על יום ריק תראה איך זה יראה שם.</small>
-                    <Link className="cta waiting-cta" href="/submit">שליחת ציור והקלטה</Link>
-                    <small>מועד אחרון למשלוח: {DEADLINE} · נדרשת הסכמת הורה</small>
-                  </div>
-                ))}
+                )}
               </div>
+
+              {pub && artTotal > 1 && (
+                <div className="art-nav" aria-label="ניווט בין הציורים בחודש">
+                  <button className="art-nav-btn" onClick={() => setSelectedDay(prevArtDay)}
+                          aria-label="הציור הקודם">
+                    <span aria-hidden="true">→</span> הקודם
+                  </button>
+                  <span className="art-nav-count">
+                    ציור <b>{artIdx + 1}</b> מתוך <b>{artTotal}</b> ב{meta.name}
+                  </span>
+                  <button className="art-nav-btn" onClick={() => setSelectedDay(nextArtDay)}
+                          aria-label="הציור הבא">
+                    הבא <span aria-hidden="true">←</span>
+                  </button>
+                </div>
+              )}
 
               {pub && (
                 <div className="art-meta">
@@ -296,11 +444,21 @@ export default function Home() {
                   <p className="art-dedication">{pub.dedication}</p>
                   {pub.voiceUrl && (
                     <div className={'voice' + (playing ? ' playing' : '')}>
-                      <button className="play-btn" onClick={() => toggleVoice(pub.voiceUrl)}>
+                      <button className="play-btn" onClick={toggleVoice}>
                         <span className="tri" aria-hidden="true"></span>
                         <span>{playing ? 'עצירה' : 'להשמיע את הקול של ' + pub.child.split(',')[0]}</span>
                       </button>
-                      <div className="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                      <div className="voice-progress" aria-hidden="true">
+                        <div className="voice-bar">
+                          <div className="voice-bar-fill"
+                               style={{ width: voiceTime.duration > 0
+                                 ? Math.min(100, (voiceTime.current / voiceTime.duration) * 100) + '%'
+                                 : '0%' }} />
+                        </div>
+                        <span className="voice-time">
+                          {fmtTime(voiceTime.current)} / {fmtTime(voiceTime.duration)}
+                        </span>
+                      </div>
                     </div>
                   )}
                   <button className="share-btn" onClick={() => share('day')}
@@ -311,48 +469,87 @@ export default function Home() {
               )}
             </section>
 
-            <section className="cal-card" aria-label="ימי החודש">
-              <div className="cal-head"><span>{meta.calTitle}</span><small>מחוז חיפה 🧡</small></div>
-              <div className="grid">
-                {DOWS.map((d) => <div key={d} className="dow">{d}</div>)}
-                {Array.from({ length: meta.startDow }).map((_, i) => <div key={'e' + i} className="day empty" />)}
-                {Array.from({ length: meta.days }).map((_, i) => {
-                  const d = i + 1;
-                  const h = meta.holidays[d];
-                  const dayArt = monthPub ? monthPub[d] : null;
-                  const isSelected = d === effectiveDay;
-                  const cls = 'day clickable'
-                    + (h ? ' holiday' : '')
-                    + (dayArt ? ' has-art' : ' vacant')
-                    + (isSelected ? ' selected' : '');
-                  return (
-                    <button key={d} type="button" className={cls}
-                            title={h || undefined}
-                            onClick={() => setSelectedDay(d)}
-                            aria-label={dayArt ? 'הצגת הציור של יום ' + d : 'יום ' + d + ' - פנוי לשליחה'}>
-                      {dayArt && <img className="day-thumb" src={dayArt.thumbUrl} alt="" />}
-                      <span className="day-num">{d}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="legend">
-                <span><b>🧡</b> חג / מועד</span>
-                <span> · לחיצה על יום עם ציור מציגה אותו</span>
-              </div>
-              <div className="holiday-list">
-                {Object.keys(meta.holidays).length
-                  ? Object.entries(meta.holidays).map(([d, n]) => (
-                      <div key={d}><span>{d}</span> - {n}</div>
-                    ))
-                  : 'אין מועדים מיוחדים החודש'}
-              </div>
-            </section>
+            {Object.keys(meta.holidays).length > 0 && (
+              <section className="holiday-card" aria-label="חגי החודש">
+                <div className="holiday-card-title"><b>🧡</b> חגי החודש</div>
+                <div className="holiday-card-list">
+                  {groupHolidays(meta.holidays).map((g, i) => (
+                    <div key={i}><span>{g.range}</span> - {g.name}</div>
+                  ))}
+                </div>
+              </section>
+            )}
+            </div>
           </main>
         </section>
       )}
 
       {shareToast && <div className="share-toast">{shareToast}</div>}
     </>
+  );
+}
+
+/* מדיה של אריח חודש: קרוסלה של כל הציורים בחודש עם cross-fade וסקלטון טעינה.
+   thumbs = מערך של URLs, ריק = מציג את מצב "הציור בדרך". */
+function TileMedia({ month, thumbs, isFeatured, isFirst }) {
+  const [idx, setIdx] = useState(0);
+  const [loadedSet, setLoadedSet] = useState(() => new Set());
+
+  /* רוטציה אוטומטית — כל 2.5 שניות, רק אם יש יותר מציור אחד */
+  useEffect(() => {
+    if (thumbs.length <= 1) return;
+    const t = setInterval(() => setIdx((i) => (i + 1) % thumbs.length), 2500);
+    return () => clearInterval(t);
+  }, [thumbs.length]);
+
+  /* אם רשימת ה-thumbs השתנתה (עדכון מהשרת) — מאפס את האינדקס */
+  useEffect(() => { setIdx(0); }, [thumbs.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (thumbs.length === 0) {
+    return (
+      <div className="tile-media empty">
+        <span className="tile-pencil-circle" aria-hidden="true">
+          <span className="tile-pencil">✏️</span>
+        </span>
+        <span className="tile-hint">הציור בדרך</span>
+      </div>
+    );
+  }
+
+  const currentThumb = thumbs[idx];
+  const isCurrentLoaded = loadedSet.has(currentThumb);
+
+  return (
+    <div className="tile-media has-art">
+      {/* סקלטון עד שהתמונה הראשונה טעונה */}
+      {!isCurrentLoaded && <div className="tile-skeleton" aria-hidden="true" />}
+
+      {/* כל התמונות מצולמות מעל, רק הנוכחית עם opacity 1 → cross-fade */}
+      {thumbs.map((thumb, i) => {
+        const isCurrent = i === idx;
+        return (
+          <img key={thumb}
+               className={'tile-thumb' + (isCurrent ? ' show' : '')}
+               src={thumb}
+               alt={i === 0 ? 'ציור בחודש ' + month.name : ''}
+               loading={(isFeatured && i === 0) || (isFirst && i === 0) ? 'eager' : 'lazy'}
+               fetchPriority={isFeatured && i === 0 ? 'high' : 'auto'}
+               decoding="async"
+               onLoad={() => setLoadedSet((prev) => {
+                 if (prev.has(thumb)) return prev;
+                 const next = new Set(prev); next.add(thumb); return next;
+               })} />
+        );
+      })}
+
+      {/* נקודות אינדיקציה בתחתית אם יש כמה ציורים */}
+      {thumbs.length > 1 && (
+        <div className="tile-dots" aria-hidden="true">
+          {thumbs.map((_, i) => (
+            <span key={i} className={'tile-dot' + (i === idx ? ' on' : '')} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

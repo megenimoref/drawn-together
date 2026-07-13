@@ -44,36 +44,121 @@ a{color:var(--orange)}
 }
 .cover-sub2{color:var(--ink-soft);margin-top:6px;font-size:.95rem}
 
+/* פסיפס 5 עמודות (5+5+3). RTL: השורה האחרונה מיושרת לצד ימין באופן טבעי. */
 .mosaic{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
-  gap:16px;margin:34px auto 0;max-width:960px;
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:22px;margin:34px auto 0;max-width:1080px;
 }
+@media(max-width:900px){.mosaic{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.mosaic{grid-template-columns:repeat(2,1fr)}}
+
+/* כל כרטיס מקבל --tile-hue משלו (ב-JSX inline style),
+   ומכאן ה-CSS גוזר: רקע רך, מסגרת עדינה, וצ'יפ בגוון תואם.
+   נשמרת אותה בהירות/רוויה — רק ה-hue משתנה — כדי לתת אחדות. */
 .tile{
-  position:relative;background:var(--card);border-radius:6px;padding:8px 8px 10px;
-  box-shadow:var(--shadow);cursor:pointer;border:none;text-align:center;
-  font-family:'Assistant',sans-serif;color:var(--ink);
-  transition:transform .15s ease;
+  position:relative;background:var(--card);border-radius:14px;
+  padding:14px 14px 16px;box-shadow:var(--shadow);cursor:pointer;border:none;
+  text-align:center;font-family:'Assistant',sans-serif;color:var(--ink);
+  display:flex;flex-direction:column;align-items:stretch;gap:10px;
+  transition:transform .18s ease,box-shadow .18s ease;
 }
-.tile:nth-child(odd){transform:rotate(-1.6deg)}
-.tile:nth-child(even){transform:rotate(1.4deg)}
-.tile:hover{transform:rotate(0) scale(1.06);z-index:2}
+.tile:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(51,64,92,.16);z-index:2}
 .tile:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
+
+/* פס דבק ורוד עדין בראש כל כרטיס — מוסיף את הרגש הידני של הפרויקט */
 .tile::before{
-  content:"";position:absolute;width:54px;height:18px;background:var(--tape);
-  top:-9px;right:50%;transform:translateX(50%) rotate(-3deg);border-radius:2px;
+  content:"";position:absolute;width:56px;height:18px;background:var(--tape);
+  top:-8px;right:50%;transform:translateX(50%) rotate(-3deg);border-radius:2px;
+  z-index:2;
 }
-.tile .art{
-  width:100%;aspect-ratio:4/3;border-radius:3px;overflow:hidden;
-  border:2px solid var(--ink);background:#fff;
-  display:flex;align-items:center;justify-content:center;
+
+/* מדיום הכרטיס — עיגול עם עיפרון או תמונת ציור */
+.tile-media{
+  position:relative;
+  width:100%;aspect-ratio:4/3;border-radius:10px;overflow:hidden;
+  background:oklch(0.96 0.04 var(--tile-hue,30));
+  border:1.5px dashed oklch(0.72 0.09 var(--tile-hue,30));
+  transition:background .18s ease,border-color .18s ease;
 }
-.tile .art img{width:100%;height:100%;object-fit:cover;display:block}
-.tile .art.placeholder{
-  border-style:dashed;border-color:var(--pink);
-  font-size:1.5rem;background:#FFF8F5;flex-direction:column;gap:2px;
+/* מצב ריק — עיפרון במרכז */
+.tile-media.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
 }
-.tile .art.placeholder small{font-size:.62rem;color:var(--ink-soft);font-weight:600}
-.tile .mname{font-family:'Amatica SC',cursive;font-weight:700;font-size:1.25rem;margin-top:7px;display:block}
+/* מצב עם ציורים — התמונות מצולמות עם cross-fade */
+.tile-media.has-art{background:oklch(0.98 0.02 var(--tile-hue,30))}
+
+/* סקלטון עדין עד שהתמונה נטענת — shimmer רך בגוון הכרטיס */
+.tile-skeleton{
+  position:absolute;inset:0;z-index:1;
+  background:linear-gradient(110deg,
+    oklch(0.94 0.04 var(--tile-hue,30)) 0%,
+    oklch(0.97 0.03 var(--tile-hue,30)) 45%,
+    oklch(0.99 0.02 var(--tile-hue,30)) 55%,
+    oklch(0.97 0.03 var(--tile-hue,30)) 65%,
+    oklch(0.94 0.04 var(--tile-hue,30)) 100%);
+  background-size:200% 100%;
+  animation:tile-shimmer 1.4s linear infinite;
+}
+@keyframes tile-shimmer{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+
+.tile-thumb{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity .6s ease;z-index:2;
+}
+.tile-thumb.show{opacity:1}
+
+/* נקודות אינדיקציה בתחתית לקרוסלה */
+.tile-dots{
+  position:absolute;bottom:8px;inset-inline:0;z-index:3;
+  display:flex;justify-content:center;gap:5px;pointer-events:none;
+}
+.tile-dot{
+  width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.6);
+  box-shadow:0 1px 2px rgba(0,0,0,.15);
+  transition:background .3s ease,transform .3s ease;
+}
+.tile-dot.on{background:#fff;transform:scale(1.35)}
+.tile-pencil-circle{
+  width:56px;height:56px;border-radius:50%;
+  background:oklch(0.90 0.08 var(--tile-hue,30));
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:1.5rem;line-height:1;
+}
+.tile-hint{
+  font-family:'Assistant',sans-serif;font-weight:600;font-size:.8rem;
+  color:oklch(0.45 0.06 var(--tile-hue,30));
+}
+
+.tile .mname{
+  font-family:'Amatica SC',cursive;font-weight:700;font-size:1.55rem;
+  line-height:1;color:var(--ink);
+}
+.tile-chip{
+  display:inline-block;font-family:'Assistant',sans-serif;font-weight:600;font-size:.78rem;
+  padding:3px 12px;border-radius:999px;align-self:center;
+  background:oklch(0.94 0.06 var(--tile-hue,30));
+  color:oklch(0.35 0.08 var(--tile-hue,30));
+}
+
+/* מונה ציורים — פס בפינה הימנית העליונה של הכרטיס */
+.tile-count{
+  position:absolute;top:10px;inset-inline-end:10px;z-index:3;
+  background:var(--card);color:var(--pink-deep);
+  border:1.5px solid var(--pink);border-radius:999px;
+  padding:2px 10px;font-size:.72rem;font-weight:700;
+}
+
+/* כרטיס מודגש (כרגע: תשרי) — מסגרת כתומה, צל עמוק, הרמה */
+.tile.featured{
+  border:2.5px solid var(--orange);
+  box-shadow:0 16px 34px rgba(239,131,84,.28);
+  transform:translateY(-6px);
+}
+.tile.featured:hover{transform:translateY(-10px);box-shadow:0 20px 40px rgba(239,131,84,.35)}
+.tile.featured .tile-count{background:var(--orange);color:#fff;border-color:var(--orange)}
 
 .cover-cta{
   display:inline-flex;align-items:center;gap:10px;margin-top:34px;
@@ -86,46 +171,80 @@ a{color:var(--orange)}
 .cover-cta:active{transform:translate(2px,3px);box-shadow:0 0 0 var(--ink)}
 .cover-cta:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 
-/* ================= כותרת חודש + ניווט ================= */
-header.month-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+/* ================= כותרת חודש + ניווט =================
+   פריסה: מימין - כותרת החודש והתאריך הלועזי. משמאל - eyebrow ולינק לשער.
+   מתחת - שורת טאבים אופקית של כל 13 החודשים. */
+header.month-head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:20px;flex-wrap:wrap;margin-bottom:22px;
+}
+.month-title-block{text-align:start}
+.month-head-side{
+  display:flex;flex-direction:column;align-items:flex-end;gap:10px;
+}
 .eyebrow{
   display:inline-flex;align-items:center;gap:8px;
   font-weight:600;font-size:.85rem;color:var(--ink-soft);
-  background:var(--card);border:1.5px dashed var(--pink);border-radius:999px;padding:6px 14px;margin-bottom:10px;
+  background:var(--card);border:1.5px dashed var(--pink);border-radius:999px;padding:7px 16px;
+  font-family:'Assistant',sans-serif;
 }
 .eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--orange)}
+/* גרסה קליקבילית של ה-eyebrow — מתפקד כלוגו שמחזיר הביתה */
+.eyebrow-home{cursor:pointer;transition:border-color .12s ease,transform .12s ease,color .12s ease}
+.eyebrow-home:hover{border-color:var(--pink-deep);color:var(--ink);transform:translateY(-1px)}
+.eyebrow-home:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
 h1.month{
   font-family:'Amatica SC',cursive;font-weight:700;
   font-size:clamp(3rem,7vw,4.6rem);line-height:.95;
 }
 .greg{font-size:1rem;color:var(--ink-soft);margin-top:4px}
 
-.nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.nav button{
-  width:46px;height:46px;border-radius:50%;border:2px solid var(--ink);
-  background:var(--card);color:var(--ink);font-size:1.3rem;cursor:pointer;
-  box-shadow:2px 3px 0 var(--ink);transition:transform .12s ease, box-shadow .12s ease;
+/* טאבים אופקיים של חודשים - סדר RTL מהחודש הראשון מימין.
+   ראשון בפס: כפתור בית (⌂ לוח תשפ״ז), מפריד עדין, ואז כל החודשים. */
+.month-tabs{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  margin:0 0 26px;justify-content:flex-end;
 }
-.nav button:hover{transform:translate(-1px,-2px);box-shadow:3px 5px 0 var(--ink)}
-.nav button:active{transform:translate(1px,2px);box-shadow:0 0 0 var(--ink)}
-.nav button:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
-.dots{display:flex;gap:5px;margin:0 4px;flex-wrap:wrap;max-width:180px;justify-content:center}
-.dots button{
-  width:11px;height:11px;min-width:0;border-radius:50%;border:none;box-shadow:none;
-  background:#E4D5D0;cursor:pointer;padding:0;transition:background .2s, transform .2s;
+.month-tab{
+  background:var(--card);border:1.5px solid #E5D6CD;border-radius:999px;
+  padding:8px 20px;font-family:'Assistant',sans-serif;font-weight:600;
+  font-size:.95rem;color:var(--ink);cursor:pointer;
+  transition:background .12s ease,color .12s ease,border-color .12s ease,transform .12s ease;
 }
-.dots button.on{background:var(--orange);transform:scale(1.3)}
-.dots button:hover{background:var(--pink)}
-.back-cover{
-  background:none;border:none;cursor:pointer;font-family:'Assistant',sans-serif;
-  font-weight:700;font-size:.85rem;color:var(--ink-soft);text-decoration:underline;
-  width:auto !important;height:auto !important;box-shadow:none !important;border-radius:0 !important;
+.month-tab:hover{border-color:var(--orange);color:var(--orange);transform:translateY(-1px)}
+.month-tab:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.month-tab.active{
+  background:var(--orange);border-color:var(--orange);color:#fff;
+  box-shadow:0 4px 12px rgba(239,131,84,.35);
 }
-.back-cover:hover{color:var(--orange);transform:none !important}
+.month-tab.active:hover{color:#fff;transform:translateY(-1px)}
 
-/* ================= פריסת חודש ================= */
-main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-items:start}
+/* כפתור בית — בכהה (navy), בולט ומובן: לוחצים וחוזרים לעמוד הבית */
+.month-tab-home{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--ink);border-color:var(--ink);color:#fff;
+  padding:8px 18px;font-weight:700;
+}
+.month-tab-home:hover{
+  background:#2a3550;border-color:#2a3550;color:#fff;
+  box-shadow:0 4px 12px rgba(51,64,92,.28);
+}
+.month-tab-home span[aria-hidden]{font-size:1.05rem;line-height:1}
+
+/* מפריד קטן בין כפתור הבית לחודשים */
+.month-tabs-divider{
+  display:inline-block;width:1.5px;height:24px;
+  background:#E5D6CD;border-radius:999px;margin:0 6px;
+}
+
+/* ================= פריסת חודש =================
+   RTL: העמודה הראשונה בגריד נמצאת מימין. לכן ה-cal-card
+   שנכתב ראשון ב-JSX מופיע בצד ימין, גדול יותר. */
+main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-items:stretch}
 @media(max-width:860px){main.month-grid{grid-template-columns:1fr}}
+
+/* עמודה שמאלית - פאנל ציור/הזמנה + כרטיסיית חגים */
+.art-column{display:flex;flex-direction:column;gap:22px;min-height:0}
 
 .art-card{
   position:relative;background:var(--card);border-radius:6px;
@@ -156,7 +275,7 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
   align-items:center;justify-content:center;gap:16px;
   background:#FFF9F4;overflow:hidden;z-index:1;
 }
-/* בזמן טעינה — נותנים למסגרת מקום כדי שהshimmer ייראה */
+/* בזמן טעינה - נותנים למסגרת מקום כדי שהshimmer ייראה */
 .frame:has(.media-loading){min-height:min(56vw,420px)}
 .media-skeleton{
   position:absolute;inset:0;
@@ -193,16 +312,37 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
 }
 .media-error .emoji{font-size:2rem}
 
-/* יום/חודש שעדיין מחכה לציור */
+/* יום/חודש שעדיין מחכה לציור - הזמנה עדינה עם מסגרת מקווקוות ורודה */
 .frame .waiting{
-  aspect-ratio:4/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
-  border:3px dashed var(--pink);margin:10px;border-radius:6px;
-  font-family:'Assistant',sans-serif;font-weight:700;font-size:1.25rem;
-  color:var(--ink);text-align:center;padding:20px;
+  min-height:min(56vw,420px);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+  border:2.5px dashed var(--pink);margin:12px;border-radius:10px;
+  font-family:'Assistant',sans-serif;
+  color:var(--ink);text-align:center;padding:30px 26px;
 }
-.waiting .emoji{font-size:2.6rem}
-.waiting small{font-family:'Assistant',sans-serif;font-weight:400;font-size:.92rem;line-height:1.6;color:var(--ink-soft);max-width:440px}
-.waiting a{font-weight:700}
+/* עיפרון בעיגול ורוד עדין */
+.waiting .emoji{
+  font-size:1.9rem;line-height:1;
+  width:66px;height:66px;border-radius:50%;
+  background:#FCE0E7;display:inline-flex;align-items:center;justify-content:center;
+  margin-bottom:2px;
+}
+.waiting > span{
+  font-family:'Assistant',sans-serif;font-weight:700;font-size:1.35rem;
+  color:var(--ink);line-height:1.3;
+}
+.waiting small{
+  font-family:'Assistant',sans-serif;font-weight:400;font-size:.95rem;
+  line-height:1.65;color:var(--ink-soft);max-width:380px;
+}
+.waiting small b{color:var(--pink-deep);font-weight:700}
+.waiting a.waiting-cta{
+  display:inline-block;background:var(--orange);color:#fff;
+  padding:12px 28px;border-radius:999px;font-weight:700;font-size:1rem;
+  text-decoration:none;box-shadow:0 4px 0 rgba(51,64,92,.15);
+  transition:transform .12s ease, box-shadow .12s ease;margin-top:6px;
+}
+.waiting a.waiting-cta:hover{transform:translateY(-1px);box-shadow:0 6px 0 rgba(51,64,92,.18)}
 
 .art-meta{padding:16px 6px 0}
 .art-title{
@@ -214,10 +354,26 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
   background:#FFE3EC;color:var(--pink-deep);border-radius:999px;padding:5px 14px;
 }
 .art-dedication{
-  font-family:'Assistant',sans-serif;font-size:1.05rem;font-weight:500;
-  line-height:1.65;color:var(--ink);
-  margin-top:14px;padding-right:14px;border-right:4px solid var(--peach);
+  font-family:'Assistant',sans-serif;font-size:1.1rem;font-weight:600;
+  line-height:1.6;color:var(--ink);
+  margin-top:14px;padding-right:14px;border-right:4px solid var(--orange);
 }
+
+/* ניווט בין ציורי אותו חודש - מופיע רק אם יש 2+ ציורים */
+.art-nav{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  margin-top:14px;padding:10px 12px;
+  background:#FFF5EE;border:1.5px solid #F3E4DE;border-radius:999px;
+}
+.art-nav-btn{
+  background:var(--card);border:1.5px solid #E5D6CD;border-radius:999px;
+  padding:6px 14px;font-family:'Assistant',sans-serif;font-weight:700;font-size:.88rem;
+  color:var(--ink);cursor:pointer;transition:all .12s ease;
+}
+.art-nav-btn:hover{border-color:var(--orange);color:var(--orange)}
+.art-nav-btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.art-nav-count{font-size:.85rem;color:var(--ink-soft);font-weight:600;text-align:center;flex-shrink:0}
+.art-nav-count b{color:var(--pink-deep);font-weight:700}
 
 /* נגן קול */
 .voice{display:flex;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap}
@@ -232,12 +388,19 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
 .play-btn:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 .play-btn .tri{width:0;height:0;border-block:7px solid transparent;border-right:11px solid #fff}
 .voice.playing .play-btn .tri{border:none;width:11px;height:14px;border-inline:3.5px solid #fff}
-.wave{display:flex;align-items:center;gap:3px;height:28px}
-.wave i{width:4px;height:8px;border-radius:2px;background:var(--pink-deep);opacity:.35}
-.voice.playing .wave i{animation:bounce .7s ease-in-out infinite;opacity:1}
-.wave i:nth-child(2){animation-delay:.08s}.wave i:nth-child(3){animation-delay:.16s}
-.wave i:nth-child(4){animation-delay:.24s}.wave i:nth-child(5){animation-delay:.32s}
-.wave i:nth-child(6){animation-delay:.4s}.wave i:nth-child(7){animation-delay:.48s}
+/* פס התקדמות אמיתי + מד זמן (מחליף את הנקודות שהיו לפני, שלא נתנו מידע ברור) */
+.voice-progress{display:flex;flex-direction:column;gap:5px;flex:1;min-width:120px}
+.voice-bar{
+  height:6px;background:rgba(231,111,142,.2);border-radius:999px;overflow:hidden;
+}
+.voice-bar-fill{
+  height:100%;background:var(--pink-deep);border-radius:999px;
+  transition:width .18s linear;
+}
+.voice-time{
+  font-family:'Assistant',sans-serif;font-weight:600;font-size:.82rem;
+  color:var(--ink-soft);font-variant-numeric:tabular-nums;
+}
 
 /* ===== שיתוף ===== */
 .share-btn{
@@ -469,42 +632,80 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
   background:var(--card);border-radius:14px;padding:20px;box-shadow:var(--shadow);
   transform:rotate(.6deg);
 }
-.cal-head{font-family:'Amatica SC',cursive;font-weight:700;font-size:1.7rem;margin-bottom:12px;display:flex;justify-content:space-between;align-items:baseline}
-.cal-head small{font-family:'Assistant';font-size:.8rem;color:var(--ink-soft);font-weight:600}
+.cal-head{
+  display:flex;justify-content:space-between;align-items:center;gap:14px;
+  margin-bottom:16px;padding-bottom:14px;border-bottom:1.5px dashed #F3E4DE;
+}
+.cal-head-title{
+  font-family:'Amatica SC',cursive;font-weight:700;font-size:1.9rem;
+  color:var(--ink);line-height:1;
+}
+.cal-loading{
+  font-family:'Assistant',sans-serif;font-weight:600;font-size:.85rem;
+  color:var(--pink-deep);animation:cal-loading-pulse 1.2s ease-in-out infinite;
+}
+@keyframes cal-loading-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+
+/* בזמן שהנתונים נטענים — התאים הריקים מקבלים shimmer עדין
+   כדי לסמן שאולי יש ציור שעדיין בדרך. */
+.grid-loading .day.vacant{
+  background:linear-gradient(110deg,#FFFDFB 0%,#FFF0E8 45%,#FFF9F4 55%,#FFFDFB 100%);
+  background-size:200% 100%;
+  animation:day-shimmer 1.4s linear infinite;
+}
+@keyframes day-shimmer{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+.cal-nav-btn{
+  background:var(--card);border:1.5px solid #E5D6CD;border-radius:999px;
+  padding:7px 16px;font-family:'Assistant',sans-serif;font-weight:600;font-size:.9rem;
+  color:var(--ink);cursor:pointer;transition:all .12s ease;
+}
+.cal-nav-btn:hover{border-color:var(--orange);color:var(--orange)}
+.cal-nav-btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
 .dow{font-weight:700;font-size:.8rem;text-align:center;color:var(--ink-soft);padding-bottom:4px}
 .day{
   position:relative;aspect-ratio:1/1;display:flex;align-items:flex-start;justify-content:flex-end;
-  font-weight:600;font-size:.95rem;border-radius:10px;background:#FBF4F0;
-  border:none;padding:4px;overflow:hidden;font-family:inherit;color:inherit;
-  cursor:default;transition:transform .12s ease,box-shadow .12s ease;
+  font-weight:600;font-size:1rem;border-radius:12px;background:#fff;
+  border:none;padding:6px 8px;overflow:hidden;font-family:inherit;color:var(--ink);
+  cursor:default;transition:transform .12s ease,box-shadow .12s ease,background .15s ease;
 }
 .day.empty{background:transparent}
-.day.holiday{background:#FFE3EC;color:var(--pink-deep)}
-.day.holiday::after{content:"🧡";position:absolute;bottom:3px;left:4px;font-size:.55rem;z-index:2}
 
-.day-num{position:relative;z-index:2;font-size:.85rem;line-height:1}
+/* חג/מועד - רקע ורוד עדין + שם המועד בתוך התא */
+.day.holiday{background:#FCE0E7;color:var(--pink-deep)}
+.day.holiday .day-num{color:var(--pink-deep);font-weight:700}
+.day-holiday-name{
+  position:absolute;bottom:6px;inset-inline-start:6px;inset-inline-end:6px;
+  font-size:.62rem;font-weight:700;color:var(--pink-deep);line-height:1.15;
+  text-align:start;z-index:2;
+}
+
+.day-num{position:relative;z-index:2;font-size:.95rem;line-height:1;font-weight:600}
 .day-thumb{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-  border-radius:8px;opacity:.9;z-index:1;
+  border-radius:10px;opacity:.92;z-index:1;
 }
+
+/* יום עם ציור */
 .day.has-art{cursor:pointer;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .day.has-art .day-num{
-  background:rgba(0,0,0,.55);border-radius:6px;padding:2px 5px;
+  background:rgba(0,0,0,.55);border-radius:6px;padding:2px 6px;
   color:#fff;font-weight:700;
-}
-.day.has-art.holiday::after{
-  background:rgba(255,255,255,.85);border-radius:6px;padding:0 2px;
 }
 .day.has-art:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(51,64,92,.2)}
 .day.selected{outline:3px solid var(--orange);outline-offset:2px}
 .day:disabled{cursor:default}
 
-/* יום ריק לחיץ בעמוד הציבורי - נותן רמז שהוא זמין לשליחה */
+/* יום ריק - מסגרת מקווקוות עדינה, לחיץ. */
 .day.clickable{cursor:pointer}
-.day.vacant:hover{background:#FFEFEA;transform:translateY(-1px)}
-.day.vacant.selected{background:#FFEFEA}
-.day.vacant.holiday:hover{background:#FFD8E4}
+.day.vacant{background:#FFFDFB;border:1.5px dashed #EFD9CE}
+.day.vacant:hover{background:#FFF5EE;border-color:var(--pink);transform:translateY(-1px)}
+.day.vacant.selected{background:#FFEFEA;border-style:solid}
+.day.vacant.holiday{background:#FCE0E7;border:1.5px dashed transparent}
+.day.vacant.holiday:hover{background:#F9CCD8}
 
 .admin-day{cursor:pointer}
 .admin-day:hover{background:#FFEFEA}
@@ -560,7 +761,7 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
 .edit-block{margin-top:14px;padding-top:12px;border-top:1.5px dashed #F3E4DE}
 .ap-eyebrow.small{font-size:.8rem;margin-bottom:6px}
 
-/* מצב עיבוד וידאו — נראה בבירור בתוך הפאנל */
+/* מצב עיבוד וידאו - נראה בבירור בתוך הפאנל */
 .video-processing{
   display:flex;align-items:center;gap:14px;
   background:#FFF9F4;border:1.5px solid var(--peach);border-radius:10px;
@@ -574,10 +775,43 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
   animation:spin 1s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
-.legend{display:flex;gap:14px;margin-top:14px;font-size:.8rem;color:var(--ink-soft);flex-wrap:wrap}
-.legend b{color:var(--pink-deep);font-weight:700}
-.holiday-list{margin-top:10px;font-size:.85rem;line-height:1.7}
-.holiday-list span{color:var(--pink-deep);font-weight:700}
+/* מקרא - 3 פריטים עם סימונים ורוד/תמונה/מסגרת. מיושר לימין ב-RTL. */
+.legend{
+  display:flex;gap:22px;justify-content:flex-start;
+  margin-top:16px;padding-top:14px;
+  border-top:1.5px solid #F3E4DE;
+  font-size:.82rem;color:var(--ink-soft);flex-wrap:wrap;font-weight:600;
+}
+.legend-item{display:inline-flex;align-items:center;gap:6px}
+.legend-swatch{
+  display:inline-block;width:18px;height:18px;border-radius:4px;
+  background:#fff;border:1.5px solid transparent;
+}
+.legend-swatch.holiday-swatch{background:#FCE0E7;border-color:transparent}
+.legend-swatch.art-swatch{
+  background:linear-gradient(135deg,#F5A3B5 0%,#EF8354 100%);
+  border:1.5px solid var(--ink);
+}
+.legend-swatch.selected-swatch{background:#fff;border:2px solid var(--orange)}
+.legend-note{color:var(--ink-soft);font-weight:600}
+.legend-heart{color:var(--pink-deep);font-size:.95rem;margin-inline-start:2px}
+
+/* כרטיסיית חגים נפרדת ליד ה-art-card */
+.holiday-card{
+  background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow);
+}
+.holiday-card-title{
+  font-family:'Amatica SC',cursive;font-weight:700;font-size:1.6rem;
+  color:var(--ink);margin-bottom:10px;
+}
+.holiday-card-title b{color:var(--pink-deep);font-weight:700;margin-inline-end:4px}
+.holiday-card-list{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;
+  font-size:.9rem;line-height:1.5;
+}
+.holiday-card-list div{color:var(--ink)}
+.holiday-card-list span{color:var(--pink-deep);font-weight:700;margin-inline-end:4px}
+@media(max-width:520px){.holiday-card-list{grid-template-columns:1fr}}
 
 footer{margin-top:44px;text-align:center;font-size:.85rem;color:var(--ink-soft)}
 footer b{color:var(--orange)}
