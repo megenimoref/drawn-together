@@ -813,6 +813,16 @@ main.month-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;align-ite
 .holiday-card-list span{color:var(--pink-deep);font-weight:700;margin-inline-end:4px}
 @media(max-width:520px){.holiday-card-list{grid-template-columns:1fr}}
 
+/* מקרא הקהילות בתחתית כרטיס החגים */
+.holiday-legend{
+  margin-top:10px;padding-top:8px;border-top:1px dashed var(--peach);
+  font-size:.72rem;color:var(--ink-soft);
+}
+.mp-holidays .holiday-legend{
+  grid-column:1 / -1;margin-top:4px;padding-top:4px;
+  border-top:1px dashed var(--pink-deep);font-size:.62rem;
+}
+
 footer{margin-top:44px;text-align:center;font-size:.85rem;color:var(--ink-soft)}
 footer b{color:var(--orange)}
 

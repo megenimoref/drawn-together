@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { MONTHS_META, CONTACT_EMAIL, groupHolidays } from '../../lib/months';
+import { MONTHS_META, CONTACT_EMAIL, groupHolidays, HOLIDAY_LEGEND } from '../../lib/months';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -150,6 +150,7 @@ export default function PrintCalendar() {
                     {groupHolidays(m.holidays).map((g, i) => (
                       <div key={i}><strong>{g.range}</strong> - {g.name}</div>
                     ))}
+                    <div className="holiday-legend">{HOLIDAY_LEGEND}</div>
                   </div>
                 )}
               </div>

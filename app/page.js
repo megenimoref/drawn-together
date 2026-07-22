@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { MONTHS_META, DEADLINE, groupHolidays } from '../lib/months';
+import { MONTHS_META, DEADLINE, groupHolidays, HOLIDAY_LEGEND } from '../lib/months';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -492,6 +492,7 @@ export default function Home() {
                     <div key={i}><span>{g.range}</span> - {g.name}</div>
                   ))}
                 </div>
+                <div className="holiday-legend">{HOLIDAY_LEGEND}</div>
               </section>
             )}
             </div>

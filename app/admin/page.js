@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { upload } from '@vercel/blob/client';
-import { MONTHS_META, groupHolidays } from '../../lib/months';
+import { MONTHS_META, groupHolidays, HOLIDAY_LEGEND } from '../../lib/months';
 import { toWebmVideo } from '../../lib/media-client';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -524,6 +524,7 @@ export default function AdminPage() {
                 <div key={i}><span>{g.range}</span> — {g.name}</div>
               ))}
             </div>
+            <div className="holiday-legend">{HOLIDAY_LEGEND}</div>
           </section>
         )}
         </div>
