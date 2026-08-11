@@ -1,0 +1,36 @@
+# לוח תשפ"ז — הרצה עצמית ב-Docker (בלי Vercel).
+# app = אפליקציית Next (standalone) · nginx = reverse proxy + הגשת מדיה מהדיסק.
+# הנתונים (JSON + ציורים/הקלטות) נשמרים בווליום dt-data ושורדים הפעלות מחדש.
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /data
+      # כתובת הפרודקשן — לקישורי שיתוף / QR / שחזור-מייל
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
+      # אופציונלי — שחזור קישור במייל (Resend)
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RECOVERY_EMAIL_FROM: ${RECOVERY_EMAIL_FROM:-}
+    volumes:
+      - dt-data:/data
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    # פורט מארח ניתן להגדרה (ברירת מחדל 8090) כדי לא להתנגש במערכות אחרות.
+    # ה-nginx/tunnel של המארח מפנה את הדומיין לכאן.
+    ports:
+      - "${WEB_PORT:-8090}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # אותו ווליום, לקריאה בלבד — nginx מגיש את הקבצים תחת /media
+      - dt-data:/data:ro
+
+volumes:
+  dt-data:

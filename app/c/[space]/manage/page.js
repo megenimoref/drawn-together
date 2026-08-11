@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { upload } from '@vercel/blob/client';
 import { MONTHS_META, groupHolidays, HOLIDAY_LEGEND } from '../../../../lib/months';
 import { toWebmVideo } from '../../../../lib/media-client';
 import { readEditToken } from '../../../../lib/space-client';
+import { uploadFile } from '../../../../lib/upload-client';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -141,11 +141,7 @@ export default function ManagePage() {
       const vidInput = videoInputs.current[sub.id];
       if (vidInput && vidInput.files && vidInput.files[0]) {
         const f = vidInput.files[0];
-        const vb = await upload('published/' + space + '/' + sub.id + '/art.mp4', f, {
-          access: 'public',
-          handleUploadUrl: '/api/upload',
-          clientPayload: JSON.stringify({ token: editToken })
-        });
+        const vb = await uploadFile('published/' + space + '/' + sub.id + '/art.mp4', f, editToken);
         videoUrl = vb.url;
       }
       /* עדכון אופטימי - משתקף מיד; אם היעד תפוס, התופס חוזר לממתין */
@@ -237,11 +233,7 @@ export default function ManagePage() {
       console.log('[updateVideo] העלאה', { size: uploadBlob.size, type: uploadBlob.type });
 
       setVideoStage('uploading');
-      const vb = await upload('published/' + space + '/' + subId + '/art.webm', uploadBlob, {
-        access: 'public',
-        handleUploadUrl: '/api/upload',
-        clientPayload: JSON.stringify({ token: editToken })
-      });
+      const vb = await uploadFile('published/' + space + '/' + subId + '/art.webm', uploadBlob, editToken);
       const videoUrl = vb && vb.url;
       if (!videoUrl) {
         throw new Error('לא התקבל URL מהעלאה');

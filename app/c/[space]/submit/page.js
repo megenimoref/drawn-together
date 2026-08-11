@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { upload } from '@vercel/blob/client';
 import { CONTACT_EMAIL, DEADLINE } from '../../../../lib/months';
 import { toWebp, toCompressedVoice, pickRecordingMime, extForMime } from '../../../../lib/media-client';
 import { readEditToken } from '../../../../lib/space-client';
+import { uploadFile } from '../../../../lib/upload-client';
 
 const MAX_IMG_MB = 12;
 const MAX_REC_SECONDS = 20;
@@ -118,11 +118,7 @@ export default function SubmitPage() {
       } catch { /* fallback: מעלים את הקובץ המקורי */ }
 
       setProgress('מעלים את הציור… 🎨');
-      const artBlob = await upload(`submissions/${space}/${id}/art.webp`, artUpload, {
-        access: 'public',
-        handleUploadUrl: '/api/upload',
-        clientPayload: JSON.stringify({ token: editToken })
-      });
+      const artBlob = await uploadFile(`submissions/${space}/${id}/art.webp`, artUpload, editToken);
 
       let voiceUrl = null;
       if (voiceBlob) {
@@ -135,11 +131,7 @@ export default function SubmitPage() {
 
         setProgress('מעלים את ההקלטה… 🎧');
         const vExt = extForMime(voiceUpload.type || 'audio/webm');
-        const vb = await upload(`submissions/${space}/${id}/voice.${vExt}`, voiceUpload, {
-          access: 'public',
-          handleUploadUrl: '/api/upload',
-          clientPayload: JSON.stringify({ token: editToken })
-        });
+        const vb = await uploadFile(`submissions/${space}/${id}/voice.${vExt}`, voiceUpload, editToken);
         voiceUrl = vb.url;
       }
 

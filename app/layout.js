@@ -11,9 +11,6 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* preconnect ל-Vercel Blob CDN — הדפדפן פותח TCP+TLS מוקדם,
-            כך שהתמונות נטענות ~200ms מהר יותר. */}
-        <link rel="preconnect" href="https://ipqrmydarzbwe3ay.public.blob.vercel-storage.com" crossOrigin="anonymous" />
         <link
           href="https://fonts.googleapis.com/css2?family=Amatica+SC:wght@400;700&family=Assistant:wght@400;600;700&family=Solitreo&display=swap"
           rel="stylesheet"
