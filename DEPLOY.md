@@ -1,8 +1,40 @@
 # לוח תשפ"ז - Drawn Together (גרסת Next.js)
 
-## מדריך התקנה ופריסה - מהמחשב שלך ועד vercel.app
-
 הפרויקט: לוחות שנה דיגיטליים **אישיים** — לוח פרטי לכל משפחה.
+
+---
+
+## פריסה עצמית ב-Docker (השיטה הנוכחית — Docker + nginx, בלי Vercel)
+
+האחסון הוא **דיסק מקומי** (ווליום של Docker) — אין תלות ב-Vercel Blob ואין מסד נתונים.
+- `app` — אפליקציית Next.js (פלט standalone).
+- `nginx` — reverse proxy, וגם מגיש את המדיה ישירות מהווליום תחת `/media`.
+- ווליום `dt-data` — כל הנתונים (JSON + ציורים/הקלטות) שורדים הפעלות מחדש.
+  - `$DATA_DIR/data/<space>/…` — קבצי ה-JSON (הגשות, meta, אינדקס)
+  - `$DATA_DIR/media/…` — הקבצים (מוגשים ע"י nginx)
+
+### הפעלה
+```
+cp .env.docker.example .env      # ערכו: NEXT_PUBLIC_SITE_URL (הדומיין שלכם), אופציונלי Resend
+docker compose up -d --build
+```
+- ברירת מחדל nginx על פורט מארח **8090** (משתנה `WEB_PORT`). ה-nginx/tunnel של המארח מפנה את הדומיין לכאן.
+- עדכון גרסה: `git pull && docker compose up -d --build`.
+- גיבוי: מגבים את הווליום `dt-data` (למשל `docker run --rm -v drawn-together_dt-data:/d -v $PWD:/b alpine tar czf /b/backup.tgz -C /d .`).
+- איפוס מוחלט (מוחק את כל הלוחות!): `docker compose down -v`.
+
+### פיתוח מקומי (בלי Docker)
+```
+npm install
+npm run dev     # http://localhost:3000 — הנתונים נשמרים ב-./.data
+```
+הכול עובד מקומית: יצירת לוח, העלאת ציור, שיבוץ וצפייה (Next מגיש גם את ה-/media בעצמו).
+
+---
+
+## (ארכיון) מדריך פריסה ישן - Vercel
+
+> הגרסה הזו הומרה לפריסת Docker. הסעיפים הבאים על Vercel/Blob נשמרים לרקע בלבד.
 
 ### מודל הלוחות האישיים (multi-tenant)
 - אין עוד לוח ציבורי אחד וצוות מאשר. במקום זה: **קוד אחד מגיש אינסוף לוחות פרטיים**,
