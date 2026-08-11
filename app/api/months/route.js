@@ -1,15 +1,19 @@
 import { readJson } from '../../../lib/server';
+import { dataIndex, dataSub, sanitizeSpace } from '../../../lib/paths';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-/* מחזיר את מה שפורסם ללוח (ציבורי - ללא פרטי הורים).
-   מקור אמת יחיד: קבצי ההגשות. מבנה: { monthId: { dayNumber: art } }. */
-export async function GET() {
-  const index = await readJson('data/index.json', []);
+/* מחזיר את מה שפורסם ללוח של space מסוים (ציבורי — ללא פרטי הורים).
+   מקור אמת יחיד: קבצי ההגשות של אותו space. מבנה: { monthId: { dayNumber: art } }. */
+export async function GET(request) {
+  const space = sanitizeSpace(new URL(request.url).searchParams.get('space'));
+  if (!space) return Response.json({ error: 'מזהה לוח לא תקין' }, { status: 400 });
+
+  const index = await readJson(dataIndex(space), []);
   /* קריאה מקבילה של כל ההגשות במקום סדרתית — משדרג ~N*500ms → ~500ms כולל. */
   const subs = await Promise.all(
-    index.map((id) => readJson('data/submissions/' + id + '.json', null))
+    index.map((id) => readJson(dataSub(space, id), null))
   );
 
   const published = {};

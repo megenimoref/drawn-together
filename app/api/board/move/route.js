@@ -1,22 +1,27 @@
-import { readJson, writeJson, isAdmin, unauthorized } from '../../../../lib/server';
+import { readJson, writeJson } from '../../../../lib/server';
+import { dataIndex, dataSub, sanitizeSpace } from '../../../../lib/paths';
+import { isEditor } from '../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-/* פעולות שיבוץ פר-יום:
+/* פעולות שיבוץ פר-יום, בתוך space מסוים:
    - move:   מעביר הגשה לצירוף (חודש, יום). אם היעד תפוס - מבצע החלפה.
    - unassign: מוריד את השיבוץ ומחזיר את ההגשה למצב "ממתין".
    מקור אמת יחיד: קבצי ההגשות. /api/months מגזר מהם את הלוח הציבורי.
    וידאו מונפש נשמר על ההגשה עצמה (sub.videoUrl) ונע איתה. */
 
 export async function POST(request) {
-  if (!isAdmin(request)) return unauthorized();
   try {
     const body = await request.json();
     const { action, id, toMonth, toDay, videoUrl, clearVideo } = body;
-    console.log('[admin/move] נכנס', { action, id, toMonth, toDay, hasVideoUrl: !!videoUrl, clearVideo });
+    const space = sanitizeSpace(body.space);
+    if (!space) return Response.json({ error: 'מזהה לוח לא תקין' }, { status: 400 });
+    if (!(await isEditor(space, body.editToken))) {
+      return Response.json({ error: 'נדרשת הרשאת עריכה' }, { status: 401 });
+    }
 
     if (action === 'unassign') {
-      const path = 'data/submissions/' + id + '.json';
+      const path = dataSub(space, id);
       const sub = await readJson(path, null);
       if (!sub) return Response.json({ error: 'הגשה לא נמצאה' }, { status: 404 });
       sub.month = null;
@@ -30,11 +35,11 @@ export async function POST(request) {
       if (!toMonth) return Response.json({ error: 'חסר חודש יעד' }, { status: 400 });
       if (!toDay) return Response.json({ error: 'חסר יום יעד' }, { status: 400 });
       const dayNum = Number(toDay);
-      if (!Number.isInteger(dayNum) || dayNum < 1 || dayNum > 30) {
+      if (!Number.isInteger(dayNum) || dayNum < 1 || dayNum > 31) {
         return Response.json({ error: 'יום לא תקין' }, { status: 400 });
       }
 
-      const path = 'data/submissions/' + id + '.json';
+      const path = dataSub(space, id);
       const sub = await readJson(path, null);
       if (!sub) return Response.json({ error: 'הגשה לא נמצאה' }, { status: 404 });
 
@@ -45,11 +50,11 @@ export async function POST(request) {
       const fromDay = sub.day ? Number(sub.day) : null;
 
       /* מוצאים אם יש הגשה משובצת ליום היעד - כדי להחליף. */
-      const index = await readJson('data/index.json', []);
+      const index = await readJson(dataIndex(space), []);
       let occupantId = null;
       for (const otherId of index) {
         if (otherId === id) continue;
-        const other = await readJson('data/submissions/' + otherId + '.json', null);
+        const other = await readJson(dataSub(space, otherId), null);
         if (other && other.status === 'approved' && other.month === toMonth && Number(other.day) === dayNum) {
           occupantId = otherId;
           break;
@@ -57,7 +62,7 @@ export async function POST(request) {
       }
 
       if (occupantId) {
-        const occPath = 'data/submissions/' + occupantId + '.json';
+        const occPath = dataSub(space, occupantId);
         const occ = await readJson(occPath, null);
         if (occ) {
           if (fromMonth && fromDay) {
@@ -81,7 +86,6 @@ export async function POST(request) {
       if (clearVideo) sub.videoUrl = null;
       else if (videoUrl) sub.videoUrl = videoUrl;
       await writeJson(path, sub);
-      console.log('[admin/move] נשמר', { id, month: sub.month, day: sub.day, videoUrl: sub.videoUrl });
       return Response.json({ ok: true });
     }
 

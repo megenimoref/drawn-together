@@ -1051,3 +1051,34 @@ textarea{resize:vertical}
   animation:flashIn .2s ease-out;
 }
 @keyframes flashIn{from{transform:translateY(-6px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ===== עמוד בית / יצירת לוח / שחזור (מודל אישי) ===== */
+.landing{max-width:640px;margin:0 auto;padding:28px 18px 60px;text-align:center}
+.landing .cover-title{margin-top:6px}
+.landing-card{
+  background:var(--card);border:1.5px solid #F1E2DC;border-radius:18px;
+  box-shadow:var(--shadow);padding:22px 22px 26px;margin:22px auto 0;text-align:right;
+}
+.landing-card h2{margin:0 0 6px;font-size:1.3rem;color:var(--ink)}
+.landing-card.created{text-align:center}
+.landing-card .big{font-size:2.6rem;line-height:1}
+.field-hint{font-size:.8rem;color:var(--ink-soft);margin-top:2px}
+.save-warn{
+  background:#FDECEF;border:1.5px solid var(--pink);border-radius:12px;
+  padding:12px 14px;margin:8px 0 14px;color:#8A2E45;line-height:1.5;
+}
+.link-box{
+  background:#FFF9F4;border:1.5px dashed var(--orange);border-radius:12px;
+  padding:12px 14px;margin:0 0 14px;overflow-x:auto;
+}
+.link-box code{font-size:.95rem;color:var(--ink);word-break:break-all;direction:ltr;display:inline-block}
+.mine-list{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:8px}
+.mine-list a{
+  display:block;background:#FFF9F4;border:1.5px solid #F3E4DE;border-radius:10px;
+  padding:11px 14px;font-weight:700;color:var(--ink);text-decoration:none;
+}
+.mine-list a:hover{border-color:var(--orange);color:var(--orange)}
+.landing-recover{margin-top:22px;color:var(--ink-soft)}
+.landing-recover a{color:var(--orange);font-weight:700}
+.landing-foot{margin-top:34px;color:var(--ink-soft);font-size:.85rem}
+.link-label{font-weight:700;font-size:.88rem;color:var(--ink);margin:0 0 6px;text-align:right}

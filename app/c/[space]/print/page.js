@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
-import { MONTHS_META, CONTACT_EMAIL, groupHolidays, HOLIDAY_LEGEND } from '../../lib/months';
+import { MONTHS_META, CONTACT_EMAIL, groupHolidays, HOLIDAY_LEGEND } from '../../../../lib/months';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -17,15 +18,19 @@ function firstArtDay(monthPublished) {
 }
 
 export default function PrintCalendar() {
+  const { space } = useParams();
+  const spaceBase = '/c/' + space;
   const [published, setPublished] = useState({});
   const [origin, setOrigin] = useState('');
+  /* בסיס הקישור של הלוח הפרטי — כל ה-QR מצביעים אליו */
+  const calBase = origin ? origin + '/c/' + space : '';
 
   useEffect(() => {
     /* בעדיפות: NEXT_PUBLIC_SITE_URL (הפרודקשן), fallback ל-window.location.
        ככה גם PDF שנוצר מקומית מייצר QR-ים שמובילים לאתר החי. */
     const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
     setOrigin((envUrl && envUrl.replace(/\/$/, '')) || window.location.origin);
-    fetch('/api/months?_t=' + Date.now(), { cache: 'no-store' })
+    fetch('/api/months?space=' + space + '&_t=' + Date.now(), { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : {}))
       .then((data) => setPublished(data))
       .catch(() => {});
@@ -37,8 +42,8 @@ export default function PrintCalendar() {
   );
 
   function urlFor(monthId, day) {
-    if (!origin) return '';
-    return origin + '/?m=' + monthId + (day ? '&d=' + day : '');
+    if (!calBase) return '';
+    return calBase + '?m=' + monthId + (day ? '&d=' + day : '');
   }
 
   return (
@@ -48,7 +53,7 @@ export default function PrintCalendar() {
         <button className="submit-btn" onClick={() => window.print()}>
           📄 שמירה כ-PDF / הדפסה
         </button>
-        <a className="back-link" href="/">← חזרה ללוח</a>
+        <a className="back-link" href={spaceBase}>← חזרה ללוח</a>
         <p className="admin-note" style={{ marginTop: 10 }}>
           לחיצה תפתח את חלונית ההדפסה. שם בוחרים "שמור כ-PDF" (או "Save as PDF"),
           A4 לרוחב, מרווחים מינימליים, וגם רקעים ("Background graphics") כדי לשמור על העיצוב.
@@ -64,7 +69,7 @@ export default function PrintCalendar() {
           <p className="cover-sub2-print">13 חודשים · געגוע, גאווה, אהבה, תקווה וחוסן</p>
 
           <div className="cover-qr-block">
-            <QRCodeSVG value={origin || 'https://example.com'} size={140} level="M"
+            <QRCodeSVG value={calBase || 'https://example.com'} size={140} level="M"
                        bgColor="#FFFDFB" fgColor="#33405C" />
             <div className="qr-caption">
               <strong>לוח דיגיטלי מלא</strong>
@@ -191,7 +196,7 @@ export default function PrintCalendar() {
           </div>
 
           <div className="credits-qr">
-            <QRCodeSVG value={origin || 'https://example.com'} size={120} level="M"
+            <QRCodeSVG value={calBase || 'https://example.com'} size={120} level="M"
                        bgColor="#FFFDFB" fgColor="#33405C" />
             <div className="qr-caption">
               <strong>לצפייה בלוח הדיגיטלי</strong>

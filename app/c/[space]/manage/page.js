@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { upload } from '@vercel/blob/client';
-import { MONTHS_META, groupHolidays, HOLIDAY_LEGEND } from '../../lib/months';
-import { toWebmVideo } from '../../lib/media-client';
+import { MONTHS_META, groupHolidays, HOLIDAY_LEGEND } from '../../../../lib/months';
+import { toWebmVideo } from '../../../../lib/media-client';
+import { readEditToken } from '../../../../lib/space-client';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -18,11 +20,15 @@ function firstArtDay(monthPublished) {
   return list.length ? list[0] : null;
 }
 
-export default function AdminPage() {
-  /* auth */
-  const [authed, setAuthed] = useState(false);
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
+export default function ManagePage() {
+  /* ה-space נגזר מה-URL (‎/c/<space>/manage‎). המפתח לגישה הוא הקישור עצמו — אין סיסמה. */
+  const { space } = useParams();
+  const spaceBase = '/c/' + space;
+
+  /* editToken (מפתח עריכה). בלעדיו המסך הזה נחסם — צריך את הקישור הפרטי. */
+  const [editToken, setEditToken] = useState('');
+  const [tokenLoaded, setTokenLoaded] = useState(false);
+  useEffect(() => { setEditToken(readEditToken(space)); setTokenLoaded(true); }, [space]);
 
   /* data */
   const [subs, setSubs] = useState([]);
@@ -49,9 +55,8 @@ export default function AdminPage() {
 
   async function loadSubs() {
     /* קווסטרינג _t חוסם cache של דפדפן במקרה שכותרות Cache-Control לא כובדו */
-    const r = await fetch('/api/admin/submissions?_t=' + Date.now(), { cache: 'no-store' });
-    if (r.status === 401) { setAuthed(false); return; }
-    if (r.ok) { setSubs(await r.json()); setAuthed(true); }
+    const r = await fetch('/api/board/submissions?space=' + space + '&edit=' + editToken + '&_t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) setSubs(await r.json());
   }
 
   /* טעינה מאוחרת: לאחר מוטציה, נותנים ל-Vercel Blob זמן להתפשט (~3s)
@@ -68,22 +73,7 @@ export default function AdminPage() {
   const shouldBroadcastRef = useRef(false);
   function broadcastChange() { shouldBroadcastRef.current = true; }
 
-  useEffect(() => { loadSubs(); }, []);
-
-  async function login(e) {
-    e.preventDefault();
-    setLoginError('');
-    const r = await fetch('/api/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    });
-    if (r.ok) { setPassword(''); await loadSubs(); }
-    else {
-      const j = await r.json().catch(() => ({}));
-      setLoginError(j.error || 'ההתחברות נכשלה');
-    }
-  }
+  useEffect(() => { if (tokenLoaded && editToken) loadSubs(); }, [tokenLoaded, editToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* מייצרים published-view מתוך subs - כדי לראות בדיוק כמו הציבורי */
   const published = useMemo(() => {
@@ -113,7 +103,7 @@ export default function AdminPage() {
     shouldBroadcastRef.current = false;
     try {
       if (typeof BroadcastChannel !== 'undefined') {
-        const bc = new BroadcastChannel('drawn-together');
+        const bc = new BroadcastChannel('drawn-together:' + space);
         bc.postMessage({ type: 'published-changed', published });
         bc.close();
       }
@@ -151,9 +141,10 @@ export default function AdminPage() {
       const vidInput = videoInputs.current[sub.id];
       if (vidInput && vidInput.files && vidInput.files[0]) {
         const f = vidInput.files[0];
-        const vb = await upload('published/' + sub.id + '/art.mp4', f, {
+        const vb = await upload('published/' + space + '/' + sub.id + '/art.mp4', f, {
           access: 'public',
-          handleUploadUrl: '/api/upload'
+          handleUploadUrl: '/api/upload',
+          clientPayload: JSON.stringify({ token: editToken })
         });
         videoUrl = vb.url;
       }
@@ -166,10 +157,10 @@ export default function AdminPage() {
           return s;
         });
       });
-      const r = await fetch('/api/admin/move', {
+      const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'move', id: sub.id, toMonth: monthId, toDay: dayNum, videoUrl })
+        body: JSON.stringify({ space, editToken, action: 'move', id: sub.id, toMonth: monthId, toDay: dayNum, videoUrl })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -207,10 +198,10 @@ export default function AdminPage() {
       });
     });
     try {
-      const r = await fetch('/api/admin/move', {
+      const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'move', id: subId, toMonth, toDay })
+        body: JSON.stringify({ space, editToken, action: 'move', id: subId, toMonth, toDay })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -246,9 +237,10 @@ export default function AdminPage() {
       console.log('[updateVideo] העלאה', { size: uploadBlob.size, type: uploadBlob.type });
 
       setVideoStage('uploading');
-      const vb = await upload('published/' + subId + '/art.webm', uploadBlob, {
+      const vb = await upload('published/' + space + '/' + subId + '/art.webm', uploadBlob, {
         access: 'public',
-        handleUploadUrl: '/api/upload'
+        handleUploadUrl: '/api/upload',
+        clientPayload: JSON.stringify({ token: editToken })
       });
       const videoUrl = vb && vb.url;
       if (!videoUrl) {
@@ -256,10 +248,10 @@ export default function AdminPage() {
       }
       console.log('[updateVideo] הועלה', videoUrl);
       setSubs((prev) => prev.map((s) => s.id === subId ? { ...s, videoUrl } : s));
-      const r = await fetch('/api/admin/move', {
+      const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'move', id: subId, toMonth: sub.month, toDay: sub.day, videoUrl })
+        body: JSON.stringify({ space, editToken, action: 'move', id: subId, toMonth: sub.month, toDay: sub.day, videoUrl })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -282,10 +274,10 @@ export default function AdminPage() {
     setBusy(true);
     setSubs((prev) => prev.map((s) => s.id === subId ? { ...s, videoUrl: null } : s));
     try {
-      const r = await fetch('/api/admin/move', {
+      const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'move', id: subId, toMonth: sub.month, toDay: sub.day, clearVideo: true })
+        body: JSON.stringify({ space, editToken, action: 'move', id: subId, toMonth: sub.month, toDay: sub.day, clearVideo: true })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -307,10 +299,10 @@ export default function AdminPage() {
     /* עדכון אופטימי - משתקף מיד ב-UI, גם אם ה-Blob CDN מתעכב */
     setSubs((prev) => prev.map((s) => s.id === subId ? { ...s, month: null, day: null, status: 'pending' } : s));
     try {
-      const r = await fetch('/api/admin/move', {
+      const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'unassign', id: subId })
+        body: JSON.stringify({ space, editToken, action: 'unassign', id: subId })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -331,10 +323,10 @@ export default function AdminPage() {
     setError('');
     setBusy(true);
     try {
-      const r = await fetch('/api/admin/decide', {
+      const r = await fetch('/api/board/decide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: sub.id, action: 'reject' })
+        body: JSON.stringify({ space, editToken, id: sub.id, action: 'reject' })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       /* עדכון אופטימי לדחייה */
@@ -377,18 +369,16 @@ export default function AdminPage() {
     else moveTo(sub.id, meta.id, dayNum);
   }
 
-  if (!authed) {
+  /* בלי מפתח עריכה — אין גישה לניהול (זה קישור צפייה בלבד). */
+  if (tokenLoaded && !editToken) {
     return (
       <div className="admin-login">
-        <h1>כניסת צוות 🧡</h1>
-        <form onSubmit={login}>
-          <input type="password" placeholder="סיסמת ניהול" value={password}
-                 onChange={(e) => setPassword(e.target.value)} autoFocus />
-          <button className="submit-btn" type="submit">כניסה</button>
-        </form>
-        {loginError && <div className="form-error" style={{ marginTop: 14 }}>{loginError}</div>}
-        {/* <p className="admin-note">הסיסמה מוגדרת במשתנה הסביבה ADMIN_PASSWORD.</p> */}
-        <p><Link className="back-link" href="/">← חזרה ללוח</Link></p>
+        <h1>ניהול הלוח 🧡</h1>
+        <p className="admin-note">
+          כדי לערוך את הלוח צריך להיכנס דרך <b>הקישור הפרטי</b> שקיבלתם ביצירת הלוח
+          (הקישור שכולל <code>?edit=</code>). הקישור הרגיל הוא לצפייה בלבד.
+        </p>
+        <p><Link className="back-link" href={spaceBase}>← צפייה בלוח</Link></p>
       </div>
     );
   }
@@ -412,9 +402,12 @@ export default function AdminPage() {
 
       <nav className="month-tabs" aria-label="ניווט בין חודשים">
         {/* בניהול, כפתור הבית מוביל ללוח הציבורי */}
-        <Link className="month-tab month-tab-home" href="/"
-              aria-label="מעבר ללוח הציבורי">
-          <span aria-hidden="true">⌂</span> לוח תשפ״ז
+        <Link className="month-tab month-tab-home" href={spaceBase}
+              aria-label="מעבר ללוח שלי">
+          <span aria-hidden="true">⌂</span> הלוח שלי
+        </Link>
+        <Link className="month-tab" href={spaceBase + '/submit'} aria-label="הוספת ציור חדש">
+          🎨 הוספת ציור
         </Link>
         <span className="month-tabs-divider" aria-hidden="true"></span>
         {MONTHS_META.map((m, i) => (
