@@ -1081,3 +1081,4 @@ textarea{resize:vertical}
 .landing-recover{margin-top:22px;color:var(--ink-soft)}
 .landing-recover a{color:var(--orange);font-weight:700}
 .landing-foot{margin-top:34px;color:var(--ink-soft);font-size:.85rem}
+.link-label{font-weight:700;font-size:.88rem;color:var(--ink);margin:0 0 6px;text-align:right}

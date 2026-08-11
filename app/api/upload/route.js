@@ -1,5 +1,6 @@
 import { handleUpload } from '@vercel/blob/client';
 import { isAllowedUploadPath } from '../../../lib/paths';
+import { isEditor } from '../../../lib/auth';
 
 /* מנפיק אישור העלאה ישירה מהדפדפן ל-Vercel Blob -
    כך קבצים עד 15MB עוקפים את מגבלת גוף הבקשה של הפונקציות.
@@ -13,9 +14,16 @@ export async function POST(request) {
     const json = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async (pathname) => {
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
         if (!isAllowedUploadPath(pathname)) {
           throw new Error('נתיב העלאה לא מורשה');
+        }
+        /* העלאה היא פעולת עריכה — מוודאים editToken מול ה-space שבנתיב. */
+        const space = (pathname.match(/^(?:submissions|published)\/([a-z0-9-]{6,64})\//) || [])[1];
+        let token = '';
+        try { token = JSON.parse(clientPayload || '{}').token || ''; } catch {}
+        if (!(await isEditor(space, token))) {
+          throw new Error('נדרשת הרשאת עריכה');
         }
         const isPublished = pathname.startsWith('published/');
         return {

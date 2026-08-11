@@ -1,5 +1,6 @@
 import { readJson, writeJson } from '../../../lib/server';
-import { dataIndex, dataSub, dataMeta, sanitizeSpace } from '../../../lib/paths';
+import { dataIndex, dataSub, sanitizeSpace } from '../../../lib/paths';
+import { isEditor } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,9 +10,11 @@ export async function POST(request) {
     const space = sanitizeSpace(b.space);
     if (!space) return Response.json({ error: 'מזהה לוח לא תקין' }, { status: 400 });
 
-    /* הלוח חייב להתקיים (נוצר דרך /api/space). מונע יצירת נתונים תחת space אקראי. */
-    const meta = await readJson(dataMeta(space), null);
-    if (!meta) return Response.json({ error: 'הלוח לא נמצא' }, { status: 404 });
+    /* הוספת ציור היא פעולת עריכה — דורשת את מפתח העריכה (editToken).
+       זה גם מוודא שהלוח קיים (isEditor טוען את ה-meta). */
+    if (!(await isEditor(space, b.editToken))) {
+      return Response.json({ error: 'נדרשת הרשאת עריכה' }, { status: 401 });
+    }
 
     const required = ['id', 'childName', 'age', 'artTitle', 'dedication', 'parentName', 'phone', 'email', 'artUrl'];
     for (const k of required) {

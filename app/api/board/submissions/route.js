@@ -1,14 +1,19 @@
 import { readJson } from '../../../../lib/server';
 import { dataIndex, dataSub, sanitizeSpace } from '../../../../lib/paths';
+import { isEditor } from '../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 /* כל ההגשות של space מסוים (כולל פרטי הורה) — לשימוש מסך הניהול של אותו לוח.
-   הגישה נשמרת ע"י ידיעת ה-space (הקישור הפרטי) — אין סיסמה. */
+   מכיל PII, ולכן דורש את מפתח העריכה (editToken) — לא נגיש למי שיש לו רק קישור צפייה. */
 export async function GET(request) {
-  const space = sanitizeSpace(new URL(request.url).searchParams.get('space'));
+  const url = new URL(request.url);
+  const space = sanitizeSpace(url.searchParams.get('space'));
   if (!space) return Response.json({ error: 'מזהה לוח לא תקין' }, { status: 400 });
+  if (!(await isEditor(space, url.searchParams.get('edit')))) {
+    return Response.json({ error: 'נדרשת הרשאת עריכה' }, { status: 401 });
+  }
 
   const index = await readJson(dataIndex(space), []);
   /* קריאה מקבילה של כל ההגשות במקום סדרתית — משדרג ~N*500ms → ~500ms כולל. */

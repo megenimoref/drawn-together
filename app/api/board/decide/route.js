@@ -1,5 +1,6 @@
 import { readJson, writeJson } from '../../../../lib/server';
 import { dataSub, sanitizeSpace } from '../../../../lib/paths';
+import { isEditor } from '../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,9 +8,13 @@ export const dynamic = 'force-dynamic';
    כדי שההחלפה בין הגשה חדשה ליום תפוס לא תשאיר את הישן יתום. */
 export async function POST(request) {
   try {
-    const { space: rawSpace, id, action } = await request.json();
-    const space = sanitizeSpace(rawSpace);
+    const body = await request.json();
+    const { id, action } = body;
+    const space = sanitizeSpace(body.space);
     if (!space) return Response.json({ error: 'מזהה לוח לא תקין' }, { status: 400 });
+    if (!(await isEditor(space, body.editToken))) {
+      return Response.json({ error: 'נדרשת הרשאת עריכה' }, { status: 401 });
+    }
     if (action !== 'reject') {
       return Response.json({ error: 'פעולה לא נתמכת - יש להשתמש ב-/api/board/move' }, { status: 400 });
     }

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { upload } from '@vercel/blob/client';
 import { MONTHS_META, groupHolidays, HOLIDAY_LEGEND } from '../../../../lib/months';
 import { toWebmVideo } from '../../../../lib/media-client';
+import { readEditToken } from '../../../../lib/space-client';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -23,6 +24,11 @@ export default function ManagePage() {
   /* ה-space נגזר מה-URL (‎/c/<space>/manage‎). המפתח לגישה הוא הקישור עצמו — אין סיסמה. */
   const { space } = useParams();
   const spaceBase = '/c/' + space;
+
+  /* editToken (מפתח עריכה). בלעדיו המסך הזה נחסם — צריך את הקישור הפרטי. */
+  const [editToken, setEditToken] = useState('');
+  const [tokenLoaded, setTokenLoaded] = useState(false);
+  useEffect(() => { setEditToken(readEditToken(space)); setTokenLoaded(true); }, [space]);
 
   /* data */
   const [subs, setSubs] = useState([]);
@@ -49,7 +55,7 @@ export default function ManagePage() {
 
   async function loadSubs() {
     /* קווסטרינג _t חוסם cache של דפדפן במקרה שכותרות Cache-Control לא כובדו */
-    const r = await fetch('/api/board/submissions?space=' + space + '&_t=' + Date.now(), { cache: 'no-store' });
+    const r = await fetch('/api/board/submissions?space=' + space + '&edit=' + editToken + '&_t=' + Date.now(), { cache: 'no-store' });
     if (r.ok) setSubs(await r.json());
   }
 
@@ -67,7 +73,7 @@ export default function ManagePage() {
   const shouldBroadcastRef = useRef(false);
   function broadcastChange() { shouldBroadcastRef.current = true; }
 
-  useEffect(() => { loadSubs(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (tokenLoaded && editToken) loadSubs(); }, [tokenLoaded, editToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* מייצרים published-view מתוך subs - כדי לראות בדיוק כמו הציבורי */
   const published = useMemo(() => {
@@ -137,7 +143,8 @@ export default function ManagePage() {
         const f = vidInput.files[0];
         const vb = await upload('published/' + space + '/' + sub.id + '/art.mp4', f, {
           access: 'public',
-          handleUploadUrl: '/api/upload'
+          handleUploadUrl: '/api/upload',
+          clientPayload: JSON.stringify({ token: editToken })
         });
         videoUrl = vb.url;
       }
@@ -153,7 +160,7 @@ export default function ManagePage() {
       const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ space, action: 'move', id: sub.id, toMonth: monthId, toDay: dayNum, videoUrl })
+        body: JSON.stringify({ space, editToken, action: 'move', id: sub.id, toMonth: monthId, toDay: dayNum, videoUrl })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -194,7 +201,7 @@ export default function ManagePage() {
       const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ space, action: 'move', id: subId, toMonth, toDay })
+        body: JSON.stringify({ space, editToken, action: 'move', id: subId, toMonth, toDay })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -232,7 +239,8 @@ export default function ManagePage() {
       setVideoStage('uploading');
       const vb = await upload('published/' + space + '/' + subId + '/art.webm', uploadBlob, {
         access: 'public',
-        handleUploadUrl: '/api/upload'
+        handleUploadUrl: '/api/upload',
+        clientPayload: JSON.stringify({ token: editToken })
       });
       const videoUrl = vb && vb.url;
       if (!videoUrl) {
@@ -243,7 +251,7 @@ export default function ManagePage() {
       const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ space, action: 'move', id: subId, toMonth: sub.month, toDay: sub.day, videoUrl })
+        body: JSON.stringify({ space, editToken, action: 'move', id: subId, toMonth: sub.month, toDay: sub.day, videoUrl })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -269,7 +277,7 @@ export default function ManagePage() {
       const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ space, action: 'move', id: subId, toMonth: sub.month, toDay: sub.day, clearVideo: true })
+        body: JSON.stringify({ space, editToken, action: 'move', id: subId, toMonth: sub.month, toDay: sub.day, clearVideo: true })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -294,7 +302,7 @@ export default function ManagePage() {
       const r = await fetch('/api/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ space, action: 'unassign', id: subId })
+        body: JSON.stringify({ space, editToken, action: 'unassign', id: subId })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       broadcastChange();
@@ -318,7 +326,7 @@ export default function ManagePage() {
       const r = await fetch('/api/board/decide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ space, id: sub.id, action: 'reject' })
+        body: JSON.stringify({ space, editToken, id: sub.id, action: 'reject' })
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'הפעולה נכשלה');
       /* עדכון אופטימי לדחייה */
@@ -359,6 +367,20 @@ export default function ManagePage() {
     if (!sub) return;
     if (drag.source === 'pending') assignPending(sub, meta.id, dayNum);
     else moveTo(sub.id, meta.id, dayNum);
+  }
+
+  /* בלי מפתח עריכה — אין גישה לניהול (זה קישור צפייה בלבד). */
+  if (tokenLoaded && !editToken) {
+    return (
+      <div className="admin-login">
+        <h1>ניהול הלוח 🧡</h1>
+        <p className="admin-note">
+          כדי לערוך את הלוח צריך להיכנס דרך <b>הקישור הפרטי</b> שקיבלתם ביצירת הלוח
+          (הקישור שכולל <code>?edit=</code>). הקישור הרגיל הוא לצפייה בלבד.
+        </p>
+        <p><Link className="back-link" href={spaceBase}>← צפייה בלוח</Link></p>
+      </div>
+    );
   }
 
   const pub = selectedDay != null && monthPub ? monthPub[selectedDay] : null;

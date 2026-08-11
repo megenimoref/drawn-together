@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { upload } from '@vercel/blob/client';
 import { CONTACT_EMAIL, DEADLINE } from '../../../../lib/months';
 import { toWebp, toCompressedVoice, pickRecordingMime, extForMime } from '../../../../lib/media-client';
+import { readEditToken } from '../../../../lib/space-client';
 
 const MAX_IMG_MB = 12;
 const MAX_REC_SECONDS = 20;
@@ -14,6 +15,11 @@ export default function SubmitPage() {
   const router = useRouter();
   const { space } = useParams();
   const spaceBase = '/c/' + space;
+
+  /* editToken (מפתח עריכה) — הוספת ציור דורשת אותו (הקישור הפרטי). */
+  const [editToken, setEditToken] = useState('');
+  const [tokenLoaded, setTokenLoaded] = useState(false);
+  useEffect(() => { setEditToken(readEditToken(space)); setTokenLoaded(true); }, [space]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
@@ -114,7 +120,8 @@ export default function SubmitPage() {
       setProgress('מעלים את הציור… 🎨');
       const artBlob = await upload(`submissions/${space}/${id}/art.webp`, artUpload, {
         access: 'public',
-        handleUploadUrl: '/api/upload'
+        handleUploadUrl: '/api/upload',
+        clientPayload: JSON.stringify({ token: editToken })
       });
 
       let voiceUrl = null;
@@ -130,7 +137,8 @@ export default function SubmitPage() {
         const vExt = extForMime(voiceUpload.type || 'audio/webm');
         const vb = await upload(`submissions/${space}/${id}/voice.${vExt}`, voiceUpload, {
           access: 'public',
-          handleUploadUrl: '/api/upload'
+          handleUploadUrl: '/api/upload',
+          clientPayload: JSON.stringify({ token: editToken })
         });
         voiceUrl = vb.url;
       }
@@ -143,6 +151,7 @@ export default function SubmitPage() {
         body: JSON.stringify({
           id,
           space,
+          editToken,
           childName: fd.get('childName'),
           age: fd.get('age'),
           artTitle: fd.get('artTitle'),
@@ -166,6 +175,21 @@ export default function SubmitPage() {
       setProgress('');
       setError('משהו השתבש בשליחה: ' + (err?.message || err) + ' - נסו שוב, או שלחו במייל ' + CONTACT_EMAIL);
     }
+  }
+
+  if (tokenLoaded && !editToken) {
+    return (
+      <div className="form-wrap" style={{ margin: '0 auto' }}>
+        <Link className="back-link" href={spaceBase}>← חזרה ללוח</Link>
+        <main className="form-card">
+          <h1>הוספת ציור 🧡</h1>
+          <p className="admin-note">
+            כדי להוסיף ציור צריך להיכנס דרך <b>הקישור הפרטי</b> של הלוח
+            (הקישור שכולל <code>?edit=</code>). הקישור הרגיל הוא לצפייה בלבד.
+          </p>
+        </main>
+      </div>
+    );
   }
 
   return (

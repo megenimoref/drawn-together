@@ -1,5 +1,6 @@
 import { readJson, writeJson } from '../../../../lib/server';
 import { dataIndex, dataSub, sanitizeSpace } from '../../../../lib/paths';
+import { isEditor } from '../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,9 @@ export async function POST(request) {
     const { action, id, toMonth, toDay, videoUrl, clearVideo } = body;
     const space = sanitizeSpace(body.space);
     if (!space) return Response.json({ error: 'מזהה לוח לא תקין' }, { status: 400 });
+    if (!(await isEditor(space, body.editToken))) {
+      return Response.json({ error: 'נדרשת הרשאת עריכה' }, { status: 401 });
+    }
 
     if (action === 'unassign') {
       const path = dataSub(space, id);

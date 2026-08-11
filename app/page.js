@@ -29,8 +29,8 @@ export default function Landing() {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [created, setCreated] = useState(null); /* { space, name, url } */
-  const [copied, setCopied] = useState(false);
+  const [created, setCreated] = useState(null); /* { space, name, editToken, viewUrl, editUrl } */
+  const [copied, setCopied] = useState(''); /* '' | 'edit' | 'view' */
 
   useEffect(() => { setMine(loadMine()); }, []);
 
@@ -48,12 +48,14 @@ export default function Landing() {
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'יצירת הלוח נכשלה');
+      const editToken = j.editToken || '';
 
-      const entry = { space, name: cleanName, createdAt: new Date().toISOString() };
+      const entry = { space, name: cleanName, editToken, createdAt: new Date().toISOString() };
       const next = [entry, ...loadMine().filter((m) => m.space !== space)];
       saveMine(next);
       setMine(next);
-      setCreated({ space, name: cleanName, url: siteRoot() + '/c/' + space });
+      const viewUrl = siteRoot() + '/c/' + space;
+      setCreated({ space, name: cleanName, editToken, viewUrl, editUrl: viewUrl + '?edit=' + editToken });
     } catch (err) {
       setError(String(err?.message || err));
     } finally {
@@ -61,18 +63,19 @@ export default function Landing() {
     }
   }
 
-  async function copyLink(url) {
+  async function copyLink(url, which) {
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(which);
+      setTimeout(() => setCopied(''), 2000);
     } catch { /* ignore */ }
   }
 
-  function mailtoLink(created) {
-    const subject = encodeURIComponent('הקישור ללוח שלי — לוח תשפ״ז');
+  function mailtoLink(c) {
+    const subject = encodeURIComponent('הקישור הפרטי ללוח שלי — לוח תשפ״ז');
     const body = encodeURIComponent(
-      'שמרו את הקישור הזה — הוא המפתח היחיד ללוח:\n\n' + created.url +
+      'שמרו את הקישור הפרטי הזה — הוא המפתח היחיד לעריכת הלוח:\n\n' + c.editUrl +
+      '\n\nקישור לשיתוף (צפייה בלבד):\n' + c.viewUrl +
       '\n\nמרכז ״מגנים על העורף״ · מחוז חיפה'
     );
     return 'mailto:?subject=' + subject + '&body=' + body;
@@ -113,19 +116,28 @@ export default function Landing() {
           <div className="big" aria-hidden="true">🎉</div>
           <h2>הלוח מוכן!</h2>
           <p className="save-warn">
-            <b>שמרו את הקישור הזה!</b> הוא המפתח היחיד ללוח שלכם. אין סיסמה ואין שחזור אוטומטי —
-            בלי הקישור לא ניתן להגיע ללוח.
+            <b>שמרו את הקישור הפרטי!</b> הוא המפתח היחיד לעריכת הלוח. אין סיסמה ואין שחזור אוטומטי.
           </p>
-          <div className="link-box">
-            <code>{created.url}</code>
-          </div>
+
+          <div className="link-label">🔒 הקישור הפרטי שלך — לעריכה (לא לשתף!):</div>
+          <div className="link-box"><code>{created.editUrl}</code></div>
           <div className="cover-actions" style={{ justifyContent: 'center' }}>
-            <button className="cover-share" onClick={() => copyLink(created.url)}>
-              {copied ? '✓ הועתק' : '📋 העתקת הקישור'}
+            <button className="cover-share" onClick={() => copyLink(created.editUrl, 'edit')}>
+              {copied === 'edit' ? '✓ הועתק' : '📋 העתקת הקישור הפרטי'}
             </button>
-            <a className="cover-share" href={mailtoLink(created)}>✉️ שליחת הקישור למייל שלי</a>
+            <a className="cover-share" href={mailtoLink(created)}>✉️ שליחה למייל שלי</a>
           </div>
-          <Link className="submit-btn" href={'/c/' + created.space} style={{ display: 'inline-block', marginTop: 18 }}>
+
+          <div className="link-label" style={{ marginTop: 18 }}>🔗 קישור לשיתוף — צפייה בלבד:</div>
+          <div className="link-box"><code>{created.viewUrl}</code></div>
+          <div className="cover-actions" style={{ justifyContent: 'center' }}>
+            <button className="cover-share" onClick={() => copyLink(created.viewUrl, 'view')}>
+              {copied === 'view' ? '✓ הועתק' : '📋 העתקת קישור הצפייה'}
+            </button>
+          </div>
+
+          <Link className="submit-btn" href={'/c/' + created.space + '?edit=' + created.editToken}
+                style={{ display: 'inline-block', marginTop: 18 }}>
             כניסה ללוח ←
           </Link>
         </section>
@@ -137,7 +149,7 @@ export default function Landing() {
           <ul className="mine-list">
             {mine.map((m) => (
               <li key={m.space}>
-                <Link href={'/c/' + m.space}>🧡 {m.name}</Link>
+                <Link href={'/c/' + m.space + (m.editToken ? '?edit=' + m.editToken : '')}>🧡 {m.name}</Link>
               </li>
             ))}
           </ul>

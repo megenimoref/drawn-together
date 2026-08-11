@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { readJson, writeJson, sha256hex } from '../../../lib/server';
 import { dataMeta, dataIndex, recoveryPath, sanitizeSpace } from '../../../lib/paths';
 
@@ -14,12 +15,14 @@ export async function POST(request) {
     const name = String(b.name || 'הלוח שלי').slice(0, 80).trim() || 'הלוח שלי';
     const email = b.email ? String(b.email).slice(0, 120).trim().toLowerCase() : null;
 
-    /* אם כבר קיים — לא דורסים (idempotent) */
+    /* אם כבר קיים — לא דורסים (idempotent), מחזירים את הטוקן הקיים */
     const existing = await readJson(dataMeta(space), null);
-    if (existing) return Response.json({ ok: true, already: true });
+    if (existing) return Response.json({ ok: true, already: true, editToken: existing.editToken });
 
+    /* editToken = מפתח העריכה הסודי. נשמר ב-meta, מוחזר ללקוח לבניית הקישור הפרטי. */
+    const editToken = randomUUID();
     const createdAt = new Date().toISOString();
-    await writeJson(dataMeta(space), { space, name, email, createdAt });
+    await writeJson(dataMeta(space), { space, name, email, editToken, createdAt });
     await writeJson(dataIndex(space), []);
 
     /* אינדקס שחזור לפי מייל (hash של המייל — לא שומרים מייל גולמי בשם הקובץ) */
@@ -33,7 +36,7 @@ export async function POST(request) {
       await writeJson(recoveryPath(h), rec);
     }
 
-    return Response.json({ ok: true });
+    return Response.json({ ok: true, editToken });
   } catch (err) {
     return Response.json({ error: String(err?.message || err) }, { status: 500 });
   }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { MONTHS_META, DEADLINE, groupHolidays, HOLIDAY_LEGEND } from '../../../lib/months';
+import { readEditToken } from '../../../lib/space-client';
 
 const DOWS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -35,6 +36,13 @@ export default function Home() {
   /* ה-space נגזר מה-URL (‎/c/<space>‎) — הלוח הפרטי של המשפחה. */
   const { space } = useParams();
   const spaceBase = '/c/' + space;
+
+  /* editToken (מפתח עריכה) — מגיע ב-‎?edit=‎ בקישור הפרטי ונשמר במכשיר.
+     בלעדיו: מצב צפייה בלבד (קישור שיתוף). מתחילים ריק כדי למנוע hydration mismatch. */
+  const [editToken, setEditToken] = useState('');
+  useEffect(() => { setEditToken(readEditToken(space)); }, [space]);
+  const canEdit = !!editToken;
+  const editHref = (p) => spaceBase + p + '?edit=' + editToken;
 
   /* מצב התחלתי אחיד לשרת וללקוח (מונע hydration mismatch).
      הקריאה מ-URL קורית ב-useEffect אחרי mount. */
@@ -281,15 +289,19 @@ export default function Home() {
 
           <button className="cover-cta" onClick={() => { setCur(0); setView('cal'); }}>פתיחת הלוח 🎨</button>
           <div className="cover-actions">
-            <Link className="cover-share" href={spaceBase + '/submit'}>
-              🎨 הוספת ציור
-            </Link>
-            <Link className="cover-share" href={spaceBase + '/manage'}>
-              🧩 ניהול הלוח שלי
-            </Link>
+            {canEdit && (
+              <>
+                <Link className="cover-share" href={editHref('/submit')}>
+                  🎨 הוספת ציור
+                </Link>
+                <Link className="cover-share" href={editHref('/manage')}>
+                  🧩 ניהול הלוח שלי
+                </Link>
+              </>
+            )}
             <button className="cover-share" onClick={() => share('cover')}
-                    aria-label="שיתוף לוח השנה">
-              🔗 שיתוף הלוח
+                    aria-label="שיתוף הלוח לצפייה בלבד">
+              🔗 שיתוף (צפייה בלבד)
             </button>
             <Link className="cover-share" href={spaceBase + '/print'}>
               📄 הורדת הלוח לPDF / הדפסה
@@ -442,7 +454,7 @@ export default function Home() {
                         ? <>יום {effectiveDay} ב{meta.name} עדיין פנוי. שלחו לנו ציור, שם פרטי, גיל והקדשה קצרה - ואם הצוות יאשר, הציור יופיע כאן על הלוח לכל השכונה.</>
                         : <>ב{meta.name} עדיין יש ימים פנויים. שלחו לנו ציור, שם פרטי, גיל והקדשה קצרה - ואם הצוות יאשר, הציור יופיע כאן על הלוח לכל השכונה.</>}
                     </small>
-                    <Link className="cta waiting-cta" href={spaceBase + '/submit'}>שליחת ציור והקלטה</Link>
+                    {canEdit && <Link className="cta waiting-cta" href={editHref('/submit')}>שליחת ציור והקלטה</Link>}
                     <small>מועד אחרון למשלוח: <b>{DEADLINE}</b> · <b>נדרשת הסכמת ההורה</b></small>
                   </div>
                 )}

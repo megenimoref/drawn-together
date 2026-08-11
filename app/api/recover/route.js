@@ -1,5 +1,5 @@
 import { readJson, sha256hex } from '../../../lib/server';
-import { recoveryPath } from '../../../lib/paths';
+import { recoveryPath, dataMeta } from '../../../lib/paths';
 import { sendRecoveryEmail, isEmailConfigured } from '../../../lib/email';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,13 @@ export async function POST(request) {
     const siteBase = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
     const rec = await readJson(recoveryPath(sha256hex(clean)), null);
     const spaces = (rec && Array.isArray(rec.spaces)) ? rec.spaces : [];
-    const links = spaces.map((s) => ({ name: s.name, url: `${siteBase}/c/${s.space}` }));
+    /* בונים את הקישור הפרטי המלא (כולל editToken) — זה מה שמחזיר גישת עריכה. */
+    const metas = await Promise.all(spaces.map((s) => readJson(dataMeta(s.space), null)));
+    const links = spaces.map((s, i) => {
+      const token = metas[i] && metas[i].editToken;
+      const url = `${siteBase}/c/${s.space}` + (token ? `?edit=${token}` : '');
+      return { name: s.name, url };
+    });
 
     if (links.length > 0) {
       await sendRecoveryEmail(clean, links);
