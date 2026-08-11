@@ -1,10 +1,18 @@
 import { readJson, writeJson } from '../../../lib/server';
+import { dataIndex, dataSub, dataMeta, sanitizeSpace } from '../../../lib/paths';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
     const b = await request.json();
+    const space = sanitizeSpace(b.space);
+    if (!space) return Response.json({ error: 'מזהה לוח לא תקין' }, { status: 400 });
+
+    /* הלוח חייב להתקיים (נוצר דרך /api/space). מונע יצירת נתונים תחת space אקראי. */
+    const meta = await readJson(dataMeta(space), null);
+    if (!meta) return Response.json({ error: 'הלוח לא נמצא' }, { status: 404 });
+
     const required = ['id', 'childName', 'age', 'artTitle', 'dedication', 'parentName', 'phone', 'email', 'artUrl'];
     for (const k of required) {
       if (!b[k] || !String(b[k]).trim()) {
@@ -29,12 +37,12 @@ export async function POST(request) {
       status: 'pending',
       month: null
     };
-    await writeJson('data/submissions/' + sub.id + '.json', sub);
+    await writeJson(dataSub(space, sub.id), sub);
 
-    /* אינדקס הגשות - רשימת מזהים אחת שקל לקרוא */
-    const index = await readJson('data/index.json', []);
+    /* אינדקס הגשות פר-מרחב - רשימת מזהים אחת שקל לקרוא */
+    const index = await readJson(dataIndex(space), []);
     if (!index.includes(sub.id)) index.unshift(sub.id);
-    await writeJson('data/index.json', index);
+    await writeJson(dataIndex(space), index);
 
     return Response.json({ ok: true });
   } catch (err) {
